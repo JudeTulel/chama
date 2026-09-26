@@ -6,10 +6,11 @@ import {InsuranceFund} from "./InsuranceFund.sol";
 import {ChamaVault} from "./ChamaVault.sol";
 import {ChamaLending} from "./ChamaLending.sol";
 import {ChamaDirectory} from "./ChamaDirectory.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /// @notice Deploys and wires one isolated USDC chama per call.
 /// @dev The caller becomes owner of every contract in the created chama.
-contract ChamaFactory {
+contract ChamaFactory is ReentrancyGuard {
     struct Chama {
         address owner;
         address usdc;
@@ -31,7 +32,7 @@ contract ChamaFactory {
         directory = address(createdDirectory);
     }
 
-    function createChama(address usdc, address treasury) external returns (uint256 id, Chama memory chama) {
+    function createChama(address usdc, address treasury) external nonReentrant returns (uint256 id, Chama memory chama) {
         require(usdc != address(0) && treasury != address(0), "zero address");
         MembershipRegistry registry = new MembershipRegistry(address(this));
         InsuranceFund insurance = new InsuranceFund(usdc, address(this));
@@ -42,13 +43,14 @@ contract ChamaFactory {
         insurance.setLendingModule(address(lending));
 
         registry.setMembershipManager(directory);
-        ChamaDirectory(directory).registerChama(msg.sender, usdc, address(registry), address(insurance), address(vault), address(lending), "Chama", "");
+        uint256 directoryChamaId = ChamaDirectory(directory).registerChama(msg.sender, usdc, address(registry), address(insurance), address(vault), address(lending), "Chama", "");
         registry.transferOwnership(msg.sender);
         insurance.transferOwnership(msg.sender);
         vault.transferOwnership(msg.sender);
         lending.transferOwnership(msg.sender);
 
         id = nextChamaId++;
+        require(directoryChamaId == id, "directory id mismatch");
         chama = Chama(msg.sender, usdc, treasury, address(registry), address(insurance), address(vault), address(lending));
         chamas[id] = chama;
         emit ChamaCreated(id, msg.sender, address(registry), address(insurance), address(vault), address(lending));

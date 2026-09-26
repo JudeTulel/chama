@@ -45,7 +45,11 @@ contract ChamaVault is ERC20, Ownable, ReentrancyGuard, Pausable {
     function convertToAssets(uint256 shares) public view returns (uint256) {
         uint256 supply = totalSupply(); return supply == 0 ? 0 : shares * totalAssets() / supply;
     }
-    function setLendingModule(address module) external onlyOwner { require(module != address(0), "zero module"); lendingModule = module; emit LendingModuleSet(module); }
+    function setLendingModule(address module) external onlyOwner {
+        require(module != address(0), "zero module");
+        lendingModule = module;
+        emit LendingModuleSet(module);
+    }
     function pause() external onlyOwner { _pause(); }
     function unpause() external onlyOwner { _unpause(); }
 
@@ -53,17 +57,18 @@ contract ChamaVault is ERC20, Ownable, ReentrancyGuard, Pausable {
         if (assets == 0) revert InvalidAmount();
         uint256 fee = assets * DEPOSIT_INSURANCE_FEE_BPS / 10_000;
         uint256 netAssets = assets - fee; shares = convertToShares(netAssets);
-        usdc.safeTransferFrom(msg.sender, address(this), assets);
-        if (fee > 0) { usdc.safeTransfer(address(insuranceFund), fee); insuranceFund.recordDepositFee(fee); }
         _mint(msg.sender, shares);
         emit Deposited(msg.sender, assets, shares);
+        usdc.safeTransferFrom(msg.sender, address(this), assets);
+        if (fee > 0) { usdc.safeTransfer(address(insuranceFund), fee); insuranceFund.recordDepositFee(fee); }
     }
     function withdraw(uint256 assets) external nonReentrant whenNotPaused memberOnly returns (uint256 shares) {
         if (assets == 0 || assets > usdc.balanceOf(address(this))) revert InsufficientLiquidity();
         shares = (assets * totalSupply() + totalAssets() - 1) / totalAssets();
         if (shares > balanceOf(msg.sender)) revert InsufficientLiquidity();
-        _burn(msg.sender, shares); usdc.safeTransfer(msg.sender, assets);
+        _burn(msg.sender, shares);
         emit Withdrawn(msg.sender, assets, shares);
+        usdc.safeTransfer(msg.sender, assets);
     }
     function lockShares(address from, uint256 shares) external onlyLending { _transfer(from, lendingModule, shares); }
     function unlockShares(address to, uint256 shares) external onlyLending { _transfer(lendingModule, to, shares); }

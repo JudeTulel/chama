@@ -24,6 +24,7 @@ contract ChamaLending is Ownable, ReentrancyGuard, Pausable {
     uint256 public constant INTEREST_INSURANCE_BPS = 200; // 2% of borrower interest
     uint256 public insuranceCoverageBps = 5_000;
     uint256 public constant DEFAULT_GRACE_PERIOD = 1 days;
+    uint256 public constant MAX_GUARANTORS = 32;
     address public treasury; uint256 public nextLoanId;
     mapping(uint256 => Loan) public loans; mapping(uint256 => address[]) public guarantors; mapping(uint256 => mapping(address => Guarantee)) public guarantees;
     error NotMember(); error Invalid(); error Unauthorized(); error NotActive(); error InsufficientCollateral();
@@ -33,6 +34,8 @@ contract ChamaLending is Ownable, ReentrancyGuard, Pausable {
     event LoanActivated(uint256 indexed id); event Repaid(uint256 indexed id, uint256 principal, uint256 interest);
     event InterestClaimed(uint256 indexed id, address indexed guarantor, uint256 amount);
     event Liquidated(uint256 indexed id, uint256 insuredAmount, uint256 collateralLoss);
+    event ParametersUpdated(uint256 multiplierBps, uint256 guarantorBps, uint256 poolBps, uint256 insuranceBps);
+    event InsuranceCoverageUpdated(uint256 coverageBps);
 
     constructor(address vault_, address registry_, address treasury_, address owner_) Ownable(owner_) {
         require(vault_ != address(0) && registry_ != address(0) && treasury_ != address(0), "zero address");
@@ -42,10 +45,12 @@ contract ChamaLending is Ownable, ReentrancyGuard, Pausable {
     function setParameters(uint256 multiplierBps, uint256 guarantorBps, uint256 poolBps, uint256 insuranceBps) external onlyOwner {
         if (multiplierBps < BPS || guarantorBps + poolBps + insuranceBps != BPS) revert Invalid();
         maxLoanMultiplierBps = multiplierBps; guarantorShareBps = guarantorBps; poolShareBps = poolBps; insuranceShareBps = insuranceBps;
+        emit ParametersUpdated(multiplierBps, guarantorBps, poolBps, insuranceBps);
     }
     function setInsuranceCoverage(uint256 coverageBps) external onlyOwner {
         if (coverageBps > BPS) revert Invalid();
         insuranceCoverageBps = coverageBps;
+        emit InsuranceCoverageUpdated(coverageBps);
     }
 
     function approveLoan(uint256 id, bool approved) external onlyOwner {
@@ -61,18 +66,22 @@ contract ChamaLending is Ownable, ReentrancyGuard, Pausable {
         if (amount > capacity) revert InsufficientCollateral();
         id = nextLoanId++; loans[id] = Loan(msg.sender, amount, amount, rateBps, block.timestamp, maturity, 0, 0, false, Status.Pending); emit LoanRequested(id, msg.sender, amount);
     }
-    function guarantee(uint256 id, uint256 shares) external memberOnly nonReentrant whenNotPaused {
+    function guarantee(uint256 id, uint256 shares) external nonReentrant memberOnly whenNotPaused {
         Loan storage loan = loans[id]; if (loan.status != Status.Pending || shares == 0 || msg.sender == loan.borrower) revert Invalid();
-        vault.lockShares(msg.sender, shares); if (guarantees[id][msg.sender].shares == 0) guarantors[id].push(msg.sender);
+        if (guarantees[id][msg.sender].shares == 0 && guarantors[id].length >= MAX_GUARANTORS) revert Invalid();
+        if (guarantees[id][msg.sender].shares == 0) guarantors[id].push(msg.sender);
         guarantees[id][msg.sender].shares += shares; loan.lockedShares += shares; emit Guaranteed(id, msg.sender, shares);
+        vault.lockShares(msg.sender, shares);
     }
-    function activate(uint256 id) external memberOnly nonReentrant whenNotPaused {
+    function activate(uint256 id) external nonReentrant memberOnly whenNotPaused {
         Loan storage loan = loans[id]; if (loan.status != Status.Pending || !loan.approved || msg.sender != loan.borrower) revert Invalid();
         uint256 borrowerCollateral = vault.balanceOf(loan.borrower);
         if (borrowerCollateral > loan.principal) borrowerCollateral = loan.principal;
         if (loan.lockedShares + borrowerCollateral < loan.principal) revert InsufficientCollateral();
-        if (borrowerCollateral > 0) { vault.lockShares(loan.borrower, borrowerCollateral); loan.borrowerLockedShares = borrowerCollateral; }
-        loan.status = Status.Active; vault.increasePrincipal(loan.principal); vault.disburseLoan(loan.borrower, loan.principal); emit LoanActivated(id);
+        if (borrowerCollateral > 0) { loan.borrowerLockedShares = borrowerCollateral; }
+        loan.status = Status.Active; vault.increasePrincipal(loan.principal); emit LoanActivated(id);
+        if (borrowerCollateral > 0) vault.lockShares(loan.borrower, borrowerCollateral);
+        vault.disburseLoan(loan.borrower, loan.principal);
     }
     function accruedInterest(uint256 id) public view returns (uint256) { Loan memory l = loans[id]; uint256 elapsed = block.timestamp > l.maturity ? l.maturity - l.createdAt : block.timestamp - l.createdAt; return l.outstanding * l.rateBps * elapsed / BPS / YEAR; }
     function repay(uint256 id, uint256 amount) external nonReentrant whenNotPaused {
@@ -82,12 +91,12 @@ contract ChamaLending is Ownable, ReentrancyGuard, Pausable {
         uint256 guarantorPool = interest * guarantorShareBps / BPS;
         uint256 treasuryFee = interest * insuranceShareBps / BPS;
         uint256 insuranceFee = interest * INTEREST_INSURANCE_BPS / BPS;
+        if (guarantorPool > 0) { for (uint256 i; i < guarantors[id].length; ++i) { address g = guarantors[id][i]; guarantees[id][g].interestClaim += guarantorPool * guarantees[id][g].shares / loan.lockedShares; } }
+        emit Repaid(id, loan.principal, interest);
         if (treasuryFee > 0) vault.transferUSDC(treasury, treasuryFee);
         if (insuranceFee > 0) vault.transferUSDC(address(vault.insuranceFund()), insuranceFee);
-        if (guarantorPool > 0) { for (uint256 i; i < guarantors[id].length; ++i) { address g = guarantors[id][i]; guarantees[id][g].interestClaim += guarantorPool * guarantees[id][g].shares / loan.lockedShares; } }
         for (uint256 i; i < guarantors[id].length; ++i) vault.unlockShares(guarantors[id][i], guarantees[id][guarantors[id][i]].shares);
         if (loan.borrowerLockedShares > 0) vault.unlockShares(loan.borrower, loan.borrowerLockedShares);
-        emit Repaid(id, loan.principal, interest);
     }
     function liquidate(uint256 id) external nonReentrant {
         Loan storage loan = loans[id];
@@ -96,7 +105,7 @@ contract ChamaLending is Ownable, ReentrancyGuard, Pausable {
         uint256 insured = InsuranceFund(address(vault.insuranceFund())).cover(id, address(vault), insuredTarget);
         if (insured > 0) vault.decreasePrincipal(insured);
         uint256 remaining = loan.outstanding - insured;
-        uint256 collateralValue;
+        uint256 collateralValue = 0;
         uint256 totalLocked = loan.lockedShares + loan.borrowerLockedShares;
         if (totalLocked > 0) {
             collateralValue = vault.convertToAssets(totalLocked);
@@ -111,6 +120,6 @@ contract ChamaLending is Ownable, ReentrancyGuard, Pausable {
     }
 
     function claimGuaranteeInterest(uint256 id) external nonReentrant {
-        uint256 amount = guarantees[id][msg.sender].interestClaim; if (amount == 0) revert Invalid(); guarantees[id][msg.sender].interestClaim = 0; vault.transferUSDC(msg.sender, amount); emit InterestClaimed(id, msg.sender, amount);
+        uint256 amount = guarantees[id][msg.sender].interestClaim; if (amount == 0) revert Invalid(); guarantees[id][msg.sender].interestClaim = 0; emit InterestClaimed(id, msg.sender, amount); vault.transferUSDC(msg.sender, amount);
     }
 }

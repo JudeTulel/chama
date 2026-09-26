@@ -123,7 +123,7 @@ contract ChamaDirectory is Ownable {
         if (request.createdAt == 0 || request.processed) revert NotFound();
         request.processed = true;
         request.approved = approved;
-        if (approved) MembershipRegistry(chamas[chamaId].registry).approveMember(applicant);
         emit JoinProcessed(chamaId, applicant, approved);
+        if (approved) MembershipRegistry(chamas[chamaId].registry).approveMember(applicant);
     }
 }
