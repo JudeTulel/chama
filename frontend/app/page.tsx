@@ -1,5 +1,5 @@
-import OnboardingPage from './onboarding/page';
+import { GettingStarted } from '../components/GettingStarted';
 
 export default function HomePage() {
-  return <OnboardingPage />;
+  return <GettingStarted />;
 }

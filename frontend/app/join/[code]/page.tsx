@@ -7,8 +7,16 @@ import { isEthereumWallet } from '@dynamic-labs/ethereum';
 import { ArrowLeft, CheckCircle2, Hash, ShieldCheck, Users } from 'lucide-react';
 import { addresses, publicClient, type ChamaDeployment } from '../../../src/config/contracts';
 import { chamaDirectoryAbi } from '../../../src/abi/ChamaDirectory';
+import { saveSelectedChama } from '../../../src/config/selectedChama';
+
+const dynamicEnvironmentReady = Boolean(process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID);
 
 export default function JoinPage() {
+  if (!dynamicEnvironmentReady) return <main className="page"><section className="section"><div className="card"><h1 className="section-title">Wallet setup required</h1><p className="muted">Configure `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID` in `frontend/.env.local` to connect a wallet and submit a membership request. Invite lookup and the rest of the site can still be previewed.</p></div></section></main>;
+  return <JoinWalletPage />;
+}
+
+function JoinWalletPage() {
   const params = useParams<{ code: string }>();
   const router = useRouter();
   const { primaryWallet } = useDynamicContext();
@@ -21,10 +29,13 @@ export default function JoinPage() {
       try {
         const invite = await publicClient.readContract({ address: addresses.directory, abi: chamaDirectoryAbi, functionName: 'invites', args: [keccak256(stringToHex(code))] });
         const inviteData = invite as readonly [bigint, bigint, bigint, bigint, boolean];
-        if (!inviteData[4]) throw new Error('This invite is inactive or expired.');
+        if (!inviteData[4] || (inviteData[1] !== BigInt(0) && BigInt(Math.floor(Date.now() / 1000)) > inviteData[1]) || inviteData[3] >= inviteData[2]) throw new Error('This invite is inactive, expired, or fully used.');
         const raw = await publicClient.readContract({ address: addresses.directory, abi: chamaDirectoryAbi, functionName: 'chamas', args: [inviteData[0]] });
         const c = raw as readonly [Address, Address, Address, Address, Address, Address, string, string, boolean, boolean];
-        setChama({ chamaId: inviteData[0], owner: c[0], usdc: c[1], registry: c[2], insuranceFund: c[3], vault: c[4], lending: c[5], name: c[6], metadataURI: c[7], active: c[8], acceptingMembers: c[9] });
+        const deployment = { chamaId: inviteData[0], owner: c[0], usdc: c[1], registry: c[2], insuranceFund: c[3], vault: c[4], lending: c[5], name: c[6], metadataURI: c[7], active: c[8], acceptingMembers: c[9] };
+        if (!deployment.active || !deployment.acceptingMembers) throw new Error('This chama is not currently accepting members.');
+        saveSelectedChama(deployment);
+        setChama(deployment);
       } catch (e) { setError(e instanceof Error ? e.message : 'Unable to resolve this invite.'); } finally { setLoading(false); }
     }
     if (addresses.directory !== '0x0000000000000000000000000000000000000000') resolve(); else { setError('Chama directory address is not configured.'); setLoading(false); }
@@ -34,6 +45,7 @@ export default function JoinPage() {
     if (!isEthereumWallet(primaryWallet)) { setError('Connect an EVM wallet for Arc.'); return; }
     try {
       const walletClient = await primaryWallet.getWalletClient();
+      if (walletClient.chain?.id !== Number(process.env.NEXT_PUBLIC_CHAIN_ID || 5042002)) throw new Error('Switch your wallet to Arc Testnet before submitting this request.');
       const hash = await walletClient.writeContract({ address: addresses.directory, abi: chamaDirectoryAbi, functionName: 'requestJoin', args: [keccak256(stringToHex(code))], chain: walletClient.chain });
       await publicClient.waitForTransactionReceipt({ hash });
       setError('Join request submitted. The chama owner must approve your wallet.');

@@ -1,2 +1,5 @@
-import { ArrowUpRight, ShieldCheck, WalletCards } from 'lucide-react';
-export default function DepositPage(){return <main className="page"><section className="section"><div className="section-head"><h1 className="section-title">Deposit management</h1><span className="pill">USDC · 6 decimals</span></div><div className="card card--soft"><WalletCards color="#16845f"/><div className="eyebrow" style={{marginTop:14}}>Current share value</div><div className="stat-big">$1,845.00</div><p className="muted">Your cUSDC shares represent your ownership in the chama pool.</p><button className="primary">Add deposit <ArrowUpRight size={16}/></button></div></section><section className="section"><div className="section-head"><h2 className="section-title">Insurance contribution</h2></div><div className="metric-grid"><div className="metric"><ShieldCheck size={17} color="#16845f"/><strong>1%</strong><span>On deposits</span></div><div className="metric"><strong>$18.45</strong><span>Funded by you</span></div><div className="metric"><strong>6</strong><span>Deposits</span></div></div></section><section className="section"><div className="section-head"><h2 className="section-title">How it works</h2></div><div className="card"><p className="muted">Each deposit sends 1% to the InsuranceFund. Shares are minted against the remaining 99%, helping protect members while your savings participate in pool activity.</p></div></section></main>}
+import DepositClient from '../../components/DepositClient';
+
+export default function DepositPage() {
+  return <DepositClient />;
+}
