@@ -20,8 +20,8 @@ contract ChamaLending is Ownable, ReentrancyGuard, Pausable {
     struct Guarantee { uint256 shares; uint256 interestClaim; }
     ChamaVault public immutable vault; IERC20 public immutable usdc; MembershipRegistry public immutable registry;
     uint256 public maxLoanMultiplierBps = 30_000; // 3x member shares
-    uint256 public guarantorShareBps = 5_000; uint256 public poolShareBps = 3_800; uint256 public insuranceShareBps = 1_000;
-    uint256 public constant INTEREST_INSURANCE_BPS = 200; // 2% of borrower interest
+    uint256 public guarantorShareBps = 5_000; uint256 public poolShareBps = 3_800; uint256 public insuranceShareBps = 300;
+    uint256 public constant INTEREST_INSURANCE_BPS = 900; // 9% of borrower interest
     uint256 public insuranceCoverageBps = 5_000;
     uint256 public constant DEFAULT_GRACE_PERIOD = 1 days;
     uint256 public constant MAX_GUARANTORS = 32;
@@ -43,7 +43,7 @@ contract ChamaLending is Ownable, ReentrancyGuard, Pausable {
     }
     modifier memberOnly() { if (!registry.isMember(msg.sender)) revert NotMember(); _; }
     function setParameters(uint256 multiplierBps, uint256 guarantorBps, uint256 poolBps, uint256 insuranceBps) external onlyOwner {
-        if (multiplierBps < BPS || guarantorBps + poolBps + insuranceBps != BPS) revert Invalid();
+        if (multiplierBps < BPS || guarantorBps + poolBps + insuranceBps + INTEREST_INSURANCE_BPS != BPS) revert Invalid();
         maxLoanMultiplierBps = multiplierBps; guarantorShareBps = guarantorBps; poolShareBps = poolBps; insuranceShareBps = insuranceBps;
         emit ParametersUpdated(multiplierBps, guarantorBps, poolBps, insuranceBps);
     }

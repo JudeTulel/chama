@@ -59,6 +59,6 @@ contract ChamaProtocolTest is Test {
         assertEq(usdc.balanceOf(borrower), 999e6);
         vm.warp(block.timestamp + 10 days);
         uint256 interest = lending.accruedInterest(id); usdc.mint(borrower, interest); vm.startPrank(borrower); usdc.approve(address(lending), 100e6 + interest); lending.repay(id, 100e6 + interest); vm.stopPrank();
-        assertEq(vault.balanceOf(guarantor), 99_990_000); assertEq(vault.outstandingPrincipal(), 0); assertEq(usdc.balanceOf(address(insurance)), 2_020_000 + (interest * 200 / 10_000));
+        assertEq(vault.balanceOf(guarantor), 99_990_000); assertEq(vault.outstandingPrincipal(), 0); assertEq(usdc.balanceOf(address(insurance)), 2_020_000 + (interest * 900 / 10_000));
     }
 }

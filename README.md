@@ -14,7 +14,8 @@ chama/
 │   ├── src/               Protocol contracts
 │   ├── test/              Solidity tests
 │   ├── script/            Deployment scripts
-│   └── README.md          Contract documentation
+│   ├── README.md          Contract setup and deployment guide
+│   └── CONTRACT_API.md    Contract operation/API reference
 ├── frontend/              Next.js mobile-first web application
 │   ├── app/               App Router pages
 │   ├── components/        Shared UI and wallet components
@@ -67,8 +68,8 @@ The Factory is shared as a creation mechanism. The Vault and Lending contracts a
 - Borrower and guarantor share collateral.
 - Multiple guarantors per loan.
 - 50% of loan interest allocated to guarantors by default.
-- 2% of loan interest sent to the InsuranceFund.
-- 10% of loan interest sent to the treasury.
+- 9% of loan interest sent to the InsuranceFund.
+- 3% of loan interest sent to the treasury.
 - Remaining pool share retained in the vault.
 - Loan repayment and guarantor interest claims.
 - Maturity grace period and liquidation flow.
@@ -143,20 +144,13 @@ Loan approval is explicit. A borrower cannot activate a request until the chama 
 
 ### InsuranceFund
 
-Receives deposit contributions and 2% of repayment interest. During liquidation, it covers the configured part of outstanding principal before collateral losses and residual socialization are applied.
+Receives deposit contributions and 9% of repayment interest. During liquidation, it covers the configured part of outstanding principal before collateral losses and residual socialization are applied.
 
-## Multi-chama joining flow
+## Onboarding and multi-chama joining
 
-1. User visits `/onboarding`.
-2. Frontend asks whether the user has a chama code.
-3. User enters a code or opens `/join/[code]`.
-4. Frontend hashes the code and reads the invite from `ChamaDirectory`.
-5. The selected chama's own registry, vault, lending, and insurance addresses are loaded at runtime.
-6. User connects an EVM wallet through Dynamic.
-7. User submits `requestJoin(codeHash)`.
-8. Chama owner approves or rejects the request.
-9. On approval, the user is added to that chama's `MembershipRegistry`.
-10. The user can then deposit, guarantee, or request loans in that selected chama.
+The frontend starts at `/` with a Get started action, then asks whether the user wants to create or join a chama, and next offers wallet creation or connection. Joining then asks for an invite code; `/join/[code]` resolves it through `ChamaDirectory` and submits a request from the connected wallet. The chama owner must approve membership before gated financial actions become available. Creating a chama submits a factory transaction and selects the verified directory record returned by the deployment.
+
+The selected chama's registry, vault, lending, and insurance addresses are loaded from the on-chain directory at runtime. Dynamic wallet features require `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID` and enabled Arc Testnet/EVM configuration. Without that setup the app reports the wallet setup gate rather than allowing transactions.
 
 Per-chama contract addresses are intentionally not hardcoded in the frontend environment.
 
@@ -166,7 +160,7 @@ The frontend is a Next.js App Router application designed mobile-first from `UI-
 
 Current routes:
 
-- `/` and `/onboarding` — chama-code onboarding.
+- `/` — Get started and guided create/join/wallet onboarding; `/onboarding` redirects here.
 - `/join/[code]` — invite resolution and join request.
 - `/deposit` — deposit and insurance overview UI.
 - `/loans` — loan eligibility and approval-state UI.
@@ -287,8 +281,8 @@ Interest allocation defaults:
 ```text
 50% → guarantors, pro rata to locked shares
 38% → general pool / share value
-10% → treasury
- 2% → InsuranceFund
+ 3% → treasury
+ 9% → InsuranceFund
 ```
 
 Solvency health uses:
@@ -334,7 +328,8 @@ The project currently uses owner-controlled membership and risk parameters. Do n
 
 - `ARCHITECTURE.md` — original protocol architecture.
 - `FRONTEND_ARCHITECTURE.md` — frontend routes, screens, ABI policy, environment model, and UI design.
-- `contracts/README.md` — contract functions, accounting, deployment, insurance, liquidation, and simulations.
+- `contracts/README.md` — contract architecture, accounting, Arc Testnet deployment, verification status, and limitations.
+- `contracts/CONTRACT_API.md` — caller permissions, operations, `cast` examples, events, and protocol lifecycle reference.
 - `frontend/README.md` — frontend setup and Dynamic wallet notes.
 
 ## License

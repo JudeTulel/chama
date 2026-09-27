@@ -24,6 +24,8 @@ The protocol uses the ERC-20 USDC interface exclusively for accounting. No WETH 
 
 ## Contracts
 
+For the complete Swagger-style contract interaction reference—including operations, caller permissions, arguments, `cast` examples, events, and lifecycle flows—see [`CONTRACT_API.md`](./CONTRACT_API.md).
+
 ### MembershipRegistry.sol
 
 Owner-managed member allowlist. Only approved members can deposit, request loans, or provide guarantees. Replace the owner-controlled membership process with a properly governed/KYC-compatible process before production deployment.
@@ -57,7 +59,7 @@ Loan and guarantee lifecycle:
 - Accrues simple interest using elapsed time.
 - Accepts full repayment.
 - Allocates the guarantor share of interest pro rata.
-- Sends the insurance share to the treasury.
+- Sends the configured treasury share to the treasury and the fixed insurance contribution to `InsuranceFund`.
 - Unlocks guarantor shares after repayment.
 - Allows guarantors to claim earned interest.
 
@@ -124,8 +126,6 @@ Bash/Git Bash:
 ```bash
 export DEPLOY_RPC_URL=https://rpc.testnet.arc.io
 export PRIVATE_KEY=your_deployer_private_key
-export TREASURY=0xYourTreasuryAddress
-
 forge script script/DeployChama.s.sol:DeployChama \
   --rpc-url "$DEPLOY_RPC_URL" \
   --broadcast \
@@ -141,7 +141,69 @@ forge script script/DeployChama.s.sol:DeployChama \
   --slow
 ```
 
-The script expects the real Arc USDC interface address above. Do not deploy a replacement USDC token on Arc.
+The script expects the real Arc USDC interface address above. Do not deploy a replacement USDC token on Arc. Deployment and source verification are separate: the Arc Testnet factory and child deployments have successful receipts, but source verification was not confirmed during this deployment.
+
+If you want to retry programmatic verification, Foundry supports Blockscout's v2 API endpoint. This route was not successfully validated for this deployment; the endpoint and key syntax may depend on your Foundry and Blockscout configuration. The `/addresses/<address>/transactions` URL is only a transaction-list endpoint and must not be passed to `--verifier-url`:
+
+```bash
+export BLOCKSCOUT_API_KEY=your_blockscout_api_key
+
+forge verify-contract \
+  --rpc-url https://rpc.testnet.arc.io \
+  --verifier blockscout \
+  --verifier-url 'https://api.blockscout.com/v2/api?chain_id=5042002' \
+  --etherscan-api-key "$BLOCKSCOUT_API_KEY" \
+  0xC5dE0e1630803E3d73d2c89f835f2CC9Db6E94D0 \
+  src/ChamaFactory.sol:ChamaFactory
+```
+
+The API key must be real; a placeholder, empty variable, or key intended only for ArcScan will produce `Proceed with API key or make a X402 payment to continue`. If your Foundry version supports it, the equivalent explicit verifier-key flag is:
+
+```bash
+--verifier-api-key "$BLOCKSCOUT_API_KEY"
+```
+
+Use the API key flag supported by your installed `forge verify-contract --help` output. Do not commit the key. An ArcScan browser verification route may also be available, but that route has not been confirmed successful for this deployment:
+
+```text
+https://testnet.arcscan.app/address/0xC5dE0e1630803E3d73d2c89f835f2CC9Db6E94D0
+```
+
+If the explorer exposes `Contract` → `Verify & Publish`, choose Solidity, and use compiler `0.8.24`, optimizer enabled with 200 runs, and EVM version `cancun`. `ChamaFactory` has no constructor arguments. The Standard JSON files below were generated from the deployment source and settings; successful publication still needs to be confirmed on the explorer.
+
+### Default chama Standard JSON reference files
+
+The following Standard JSON compiler-input files were generated from the exact Foundry project settings used for the default Arc Testnet deployment. Upload each file in ArcScan's Standard JSON verification form, select the listed contract, and use compiler `0.8.24`, optimizer enabled with 200 runs, and EVM version `cancun`.
+
+| Contract | Deployed address | Standard JSON file | Contract identifier |
+|---|---|---|---|
+| ChamaFactory | `0xC5dE0e1630803E3d73d2c89f835f2CC9Db6E94D0` | `ChamaFactory.standard-input.json` | `src/ChamaFactory.sol:ChamaFactory` |
+| ChamaDirectory | `0xba1c6e925096c739303924cc87b705a65dacad59` | `ChamaDirectory.standard-input.json` | `src/ChamaDirectory.sol:ChamaDirectory` |
+| MembershipRegistry | `0xeea3897842f62f6cca3264914788b35834be6b29` | `MembershipRegistry.standard-input.json` | `src/MembershipRegistry.sol:MembershipRegistry` |
+| InsuranceFund | `0x1bf4ca174204f1ffb4b28bde0d26802fc5ced587` | `InsuranceFund.standard-input.json` | `src/InsuranceFund.sol:InsuranceFund` |
+| ChamaVault | `0x540ccf5860a32134278487e3aaba44c4ebdeb8de` | `ChamaVault.standard-input.json` | `src/ChamaVault.sol:ChamaVault` |
+| ChamaLending | `0xa11bd4b30af0d1c5390484b3deabc4db7d4c9dfe` | `ChamaLending.standard-input.json` | `src/ChamaLending.sol:ChamaLending` |
+
+The files are in this `contracts/` directory. They contain source and compiler settings, not private keys. The default chama constructor arguments are:
+
+```text
+ChamaFactory: none
+ChamaDirectory: factory 0xC5dE0e1630803E3d73d2c89f835f2CC9Db6E94D0, owner 0x67352B92EA3a8B38eAF93ca91BD108e7c29B6dd7
+MembershipRegistry: owner 0xC5dE0e1630803E3d73d2c89f835f2CC9Db6E94D0
+InsuranceFund: USDC 0x3600000000000000000000000000000000000000, owner 0x67352B92EA3a8B38eAF93ca91BD108e7c29B6dd7
+ChamaVault: USDC 0x3600000000000000000000000000000000000000, registry 0xeea3897842f62f6cca3264914788b35834be6b29, insurance 0x1bf4ca174204f1ffb4b28bde0d26802fc5ced587, owner 0xC5dE0e1630803E3d73d2c89f835f2CC9Db6E94D0
+ChamaLending: vault 0x540ccf5860a32134278487e3aaba44c4ebdeb8de, registry 0xeea3897842f62f6cca3264914788b35834be6b29, treasury 0x67352B92EA3a8B38eAF93ca91BD108e7c29B6dd7, owner 0xC5dE0e1630803E3d73d2c89f835f2CC9Db6E94D0
+```
+
+These constructor values match the recorded Arc Testnet deployment receipt. Use the values from your own receipt if your deployment wallet or treasury differs.
+
+If deployment fails with `CreateContractSizeLimit`, update to the current source and rebuild before retrying. The factory deploys several child contracts and must remain below the EVM runtime contract-size limit. The failed transaction does not deploy a usable factory; confirm with:
+
+```bash
+cast code 0xFailedFactoryAddress --rpc-url "$DEPLOY_RPC_URL"
+```
+
+An output of `0x` means no contract code exists at that address. The verifier API key warning is separate from deployment execution; it affects source verification, not whether the deployment transaction can be mined.
 
 ## Post-deployment configuration
 
@@ -159,10 +221,10 @@ Default parameters:
 
 - Maximum loan multiplier: 3x share value.
 - Guarantor interest share: 50%.
-- Pool share: 40% retained by the vault.
-- Insurance/treasury share: 10%.
-- Additional interest insurance contribution: 2% of every interest payment, sent to `InsuranceFund`.
-- Effective interest split: 50% guarantors, 38% pool, 10% treasury, 2% insurance.
+- Pool share: 38% retained by the vault.
+- Treasury share: 3% of every interest payment.
+- Interest insurance contribution: 9% of every interest payment, sent to `InsuranceFund`.
+- Effective interest split: 50% guarantors, 38% pool, 3% treasury, 9% insurance.
 - Deposit insurance contribution: 1% of every deposit.
 
 ## Accounting flow
@@ -185,7 +247,7 @@ Repayment:
 2. Borrower repays principal plus accrued interest.
 3. Principal is removed from outstanding principal.
 4. Guarantor interest is recorded pro rata.
-5. The 10% treasury fee is sent to the treasury and an additional 2% of interest is sent to `InsuranceFund`.
+5. The 3% treasury fee is sent to the treasury and 9% of interest is sent to `InsuranceFund`.
 6. The remaining 38% pool portion stays in the vault, increasing share value.
 7. Locked guarantor shares are returned.
 
@@ -207,8 +269,8 @@ Alice pays `3,360 USDC`:
 - `3,000 USDC` principal returns to the vault.
 - `180 USDC` (50%) is allocated to guarantors.
 - `136.80 USDC` (38%) remains in the pool and increases share value.
-- `36 USDC` (10%) goes to the treasury.
-- `7.20 USDC` (2%) goes to the InsuranceFund.
+- `10.80 USDC` (3%) goes to the treasury.
+- `32.40 USDC` (9%) goes to the InsuranceFund.
 
 Each guarantor receives `45 USDC` because each supplied 25% of total guarantor collateral. All four guarantors recover their `500 USDC` locked shares and earn a 9% return on the guaranteed amount for this example. Alice recovers her locked shares after repayment.
 

@@ -6,11 +6,11 @@ import {InsuranceFund} from "./InsuranceFund.sol";
 import {ChamaVault} from "./ChamaVault.sol";
 import {ChamaLending} from "./ChamaLending.sol";
 import {ChamaDirectory} from "./ChamaDirectory.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+
 
 /// @notice Deploys and wires one isolated USDC chama per call.
 /// @dev The caller becomes owner of every contract in the created chama.
-contract ChamaFactory is ReentrancyGuard {
+contract ChamaFactory {
     struct Chama {
         address owner;
         address usdc;
@@ -32,8 +32,9 @@ contract ChamaFactory is ReentrancyGuard {
         directory = address(createdDirectory);
     }
 
-    function createChama(address usdc, address treasury) external nonReentrant returns (uint256 id, Chama memory chama) {
+    function createChama(address usdc, address treasury) external returns (uint256 id, Chama memory chama) {
         require(usdc != address(0) && treasury != address(0), "zero address");
+        id = nextChamaId++;
         MembershipRegistry registry = new MembershipRegistry(address(this));
         InsuranceFund insurance = new InsuranceFund(usdc, address(this));
         ChamaVault vault = new ChamaVault(usdc, address(registry), address(insurance), address(this));
@@ -49,7 +50,6 @@ contract ChamaFactory is ReentrancyGuard {
         vault.transferOwnership(msg.sender);
         lending.transferOwnership(msg.sender);
 
-        id = nextChamaId++;
         require(directoryChamaId == id, "directory id mismatch");
         chama = Chama(msg.sender, usdc, treasury, address(registry), address(insurance), address(vault), address(lending));
         chamas[id] = chama;
