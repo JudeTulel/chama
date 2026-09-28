@@ -98,7 +98,7 @@ The factory also creates the directory and configures it as the membership manag
 
 ### DeployChama.s.sol
 
-Deploys the `ChamaFactory` and creates one chama in the same broadcast using `USDC_ADDRESS` and `TREASURY`. The deployer/caller becomes the owner of the created chama.
+Deploys the `ChamaFactory` and creates one chama in the same broadcast using `USDC_ADDRESS`, `TREASURY`, and optional `CHAMA_NAME` (defaults to `Default Chama`). The deployer/caller becomes the owner of the created chama. Names must contain 1–64 UTF-8 bytes. Chama owners can update a name through `ChamaDirectory.setChamaName`.
 
 ### Test contracts
 

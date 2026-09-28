@@ -24,7 +24,9 @@ contract ChamaProtocolTest is Test {
     function testFactoryCreatorOwnsChama() public {
         ChamaFactory factory = new ChamaFactory();
         vm.prank(owner);
-        (, ChamaFactory.Chama memory created) = factory.createChama(address(usdc), treasury);
+        uint256 id = factory.createChama(address(usdc), treasury, "Test Chama");
+        (address createdOwner, address token, address createdTreasury, address registryAddress, address insuranceAddress, address vaultAddress, address lendingAddress) = factory.chamas(id);
+        ChamaFactory.Chama memory created = ChamaFactory.Chama(createdOwner, token, createdTreasury, registryAddress, insuranceAddress, vaultAddress, lendingAddress);
         assertEq(created.owner, owner);
         assertFalse(MembershipRegistry(created.registry).isMember(owner));
         assertEq(Ownable(created.registry).owner(), owner);
@@ -39,12 +41,37 @@ contract ChamaProtocolTest is Test {
         ChamaFactory factory = new ChamaFactory();
         bytes32 codeHash = keccak256(abi.encodePacked("NAIROBI-7K4Q2M"));
         vm.prank(owner);
-        (, ChamaFactory.Chama memory created) = factory.createChama(address(usdc), treasury);
+        uint256 id = factory.createChama(address(usdc), treasury, "Test Chama");
+        (address createdOwner, address token, address createdTreasury, address registryAddress, address insuranceAddress, address vaultAddress, address lendingAddress) = factory.chamas(id);
+        ChamaFactory.Chama memory created = ChamaFactory.Chama(createdOwner, token, createdTreasury, registryAddress, insuranceAddress, vaultAddress, lendingAddress);
         ChamaDirectory directory = ChamaDirectory(factory.directory());
         vm.prank(owner); directory.createInvite(0, codeHash, block.timestamp + 7 days, 10);
         vm.prank(guarantor); directory.requestJoin(codeHash);
         vm.prank(owner); directory.approveJoin(0, guarantor, true);
         assertTrue(MembershipRegistry(created.registry).isMember(guarantor));
+    }
+
+    function testOwnerCanRenameChama() public {
+        ChamaFactory factory = new ChamaFactory();
+        vm.prank(owner);
+        factory.createChama(address(usdc), treasury, "Nairobi Women Savers");
+        ChamaDirectory directory = ChamaDirectory(factory.directory());
+
+        vm.prank(owner);
+        directory.setChamaName(0, "Nairobi Women Savers Club");
+
+        (,,,,,, string memory name,,,) = directory.chamas(0);
+        assertEq(name, "Nairobi Women Savers Club");
+    }
+
+    function testNamedCreationStoresTheProvidedName() public {
+        ChamaFactory factory = new ChamaFactory();
+        vm.prank(owner);
+        factory.createChama(address(usdc), treasury, "Nairobi Women Savers");
+        ChamaDirectory directory = ChamaDirectory(factory.directory());
+
+        (,,,,,, string memory name,,,) = directory.chamas(0);
+        assertEq(name, "Nairobi Women Savers");
     }
 
     function testDepositInsuranceFee() public {

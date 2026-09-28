@@ -331,6 +331,24 @@ export const chamaDirectoryAbi = [
   },
   {
     "type": "function",
+    "name": "setChamaName",
+    "inputs": [
+      {
+        "name": "chamaId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "setChamaStatus",
     "inputs": [
       {
@@ -364,6 +382,25 @@ export const chamaDirectoryAbi = [
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "ChamaNameUpdated",
+    "inputs": [
+      {
+        "name": "chamaId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
+    ],
+    "anonymous": false
   },
   {
     "type": "event",

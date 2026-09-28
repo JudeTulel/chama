@@ -46,6 +46,7 @@ contract ChamaDirectory is Ownable {
     error AlreadyMember();
 
     event ChamaRegistered(uint256 indexed chamaId, address indexed owner, address registry, string name);
+    event ChamaNameUpdated(uint256 indexed chamaId, string name);
     event InviteCreated(bytes32 indexed codeHash, uint256 indexed chamaId, uint256 expiresAt, uint256 maxUses);
     event InviteRevoked(bytes32 indexed codeHash);
     event JoinRequested(uint256 indexed chamaId, address indexed applicant, bytes32 indexed codeHash);
@@ -87,6 +88,12 @@ contract ChamaDirectory is Ownable {
         if (codeHash == bytes32(0) || (expiresAt != 0 && expiresAt <= block.timestamp) || maxUses == 0) revert Invalid();
         invites[codeHash] = Invite(chamaId, expiresAt, maxUses, 0, true);
         emit InviteCreated(codeHash, chamaId, expiresAt, maxUses);
+    }
+
+    function setChamaName(uint256 chamaId, string calldata name) external chamaOwner(chamaId) {
+        if (bytes(name).length == 0 || bytes(name).length > 64) revert Invalid();
+        chamas[chamaId].name = name;
+        emit ChamaNameUpdated(chamaId, name);
     }
 
     function revokeInvite(bytes32 codeHash) external {

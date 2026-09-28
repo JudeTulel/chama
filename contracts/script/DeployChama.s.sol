@@ -11,7 +11,7 @@ contract DeployChama is Script {
         address treasury = vm.envAddress("TREASURY");
         vm.startBroadcast(deployerKey);
         factory = new ChamaFactory();
-        factory.createChama(usdc, treasury);
+        factory.createChama(usdc, treasury, vm.envOr("CHAMA_NAME", string("Default Chama")));
         vm.stopBroadcast();
     }
 }

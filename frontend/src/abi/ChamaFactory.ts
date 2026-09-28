@@ -66,6 +66,11 @@ export const chamaFactoryAbi = [
         "name": "treasury",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "internalType": "string"
       }
     ],
     "outputs": [
@@ -73,48 +78,6 @@ export const chamaFactoryAbi = [
         "name": "id",
         "type": "uint256",
         "internalType": "uint256"
-      },
-      {
-        "name": "chama",
-        "type": "tuple",
-        "internalType": "struct ChamaFactory.Chama",
-        "components": [
-          {
-            "name": "owner",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "usdc",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "treasury",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "registry",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "insuranceFund",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "vault",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "lending",
-            "type": "address",
-            "internalType": "address"
-          }
-        ]
       }
     ],
     "stateMutability": "nonpayable"
@@ -187,5 +150,15 @@ export const chamaFactoryAbi = [
       }
     ],
     "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "InvalidChamaName",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroAddress",
+    "inputs": []
   }
 ] as const;

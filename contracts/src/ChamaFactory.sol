@@ -11,6 +11,8 @@ import {ChamaDirectory} from "./ChamaDirectory.sol";
 /// @notice Deploys and wires one isolated USDC chama per call.
 /// @dev The caller becomes owner of every contract in the created chama.
 contract ChamaFactory {
+    error InvalidChamaName();
+    error ZeroAddress();
     struct Chama {
         address owner;
         address usdc;
@@ -32,8 +34,9 @@ contract ChamaFactory {
         directory = address(createdDirectory);
     }
 
-    function createChama(address usdc, address treasury) external returns (uint256 id, Chama memory chama) {
-        require(usdc != address(0) && treasury != address(0), "zero address");
+    function createChama(address usdc, address treasury, string calldata name) external returns (uint256 id) {
+        if (bytes(name).length == 0 || bytes(name).length > 64) revert InvalidChamaName();
+        if (usdc == address(0) || treasury == address(0)) revert ZeroAddress();
         id = nextChamaId++;
         MembershipRegistry registry = new MembershipRegistry(address(this));
         InsuranceFund insurance = new InsuranceFund(usdc, address(this));
@@ -44,15 +47,14 @@ contract ChamaFactory {
         insurance.setLendingModule(address(lending));
 
         registry.setMembershipManager(directory);
-        uint256 directoryChamaId = ChamaDirectory(directory).registerChama(msg.sender, usdc, address(registry), address(insurance), address(vault), address(lending), "Chama", "");
+        uint256 directoryChamaId = ChamaDirectory(directory).registerChama(msg.sender, usdc, address(registry), address(insurance), address(vault), address(lending), name, "");
         registry.transferOwnership(msg.sender);
         insurance.transferOwnership(msg.sender);
         vault.transferOwnership(msg.sender);
         lending.transferOwnership(msg.sender);
 
         require(directoryChamaId == id, "directory id mismatch");
-        chama = Chama(msg.sender, usdc, treasury, address(registry), address(insurance), address(vault), address(lending));
-        chamas[id] = chama;
+        chamas[id] = Chama(msg.sender, usdc, treasury, address(registry), address(insurance), address(vault), address(lending));
         emit ChamaCreated(id, msg.sender, address(registry), address(insurance), address(vault), address(lending));
     }
 }

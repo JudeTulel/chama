@@ -70,13 +70,14 @@ Foundry ABI artifacts are produced by `forge build` under `out/<Source>.sol/<Con
 | Read chama record | Read | Anyone | `chamas(uint256)` |
 | Read directory | Read | Anyone | `directory()` |
 | Read next ID | Read | Anyone | `nextChamaId()` |
-| Create chama | Write | Anyone | `createChama(address usdc,address treasury)` |
+| Create chama | Write | Anyone | `createChama(address usdc,address treasury,string name)` |
 
 ### Directory
 
 | Operation | Type | Caller | Signature |
 |---|---|---|---|
 | Read chama | Read | Anyone | `chamas(uint256)` |
+| Rename chama | Write | Chama owner | `setChamaName(uint256 chamaId,string name)` |
 | Read invite | Read | Anyone | `invites(bytes32)` |
 | Read join request | Read | Anyone | `joinRequests(uint256,address)` |
 | Create invite | Write | Chama owner | `createInvite(uint256 chamaId,bytes32 codeHash,uint256 expiresAt,uint256 maxUses)` |
@@ -84,6 +85,8 @@ Foundry ABI artifacts are produced by `forge build` under `out/<Source>.sol/<Con
 | Request membership | Write | Applicant wallet | `requestJoin(bytes32 codeHash)` |
 | Approve/reject join | Write | Chama owner | `approveJoin(uint256 chamaId,address applicant,bool approved)` |
 | Open/close chama | Write | Chama owner | `setChamaStatus(uint256 chamaId,bool active,bool acceptingMembers)` |
+
+`setChamaName` accepts a nonempty name up to 64 UTF-8 bytes, updates the chama's directory record, and emits `ChamaNameUpdated`.
 
 ### Membership registry
 
@@ -169,20 +172,22 @@ The factory automatically performs the child wiring during `createChama`, then t
 ### `ChamaFactory.createChama`
 
 ```text
-createChama(address usdc, address treasury)
+createChama(address usdc, address treasury, string name)
 ```
 
 - Caller: any wallet; the caller becomes owner of the created registry, insurance fund, vault, and lending contract.
 - `usdc`: ERC-20 asset address; must be nonzero.
 - `treasury`: recipient of the treasury interest allocation; must be nonzero.
-- Returns `(id, chama)` on-chain. The receipt emits `ChamaCreated(id, owner, registry, insuranceFund, vault, lending)`.
+- `name`: required chama name, from 1 to 64 UTF-8 bytes.
+- Returns the chama ID. Read child addresses from `chamas(id)` and the directory entry.
+- The receipt emits `ChamaCreated(id, owner, registry, insuranceFund, vault, lending)`.
 - The directory is created once in the factory constructor and is available via `directory()`.
-- The new directory entry currently uses the default name `Chama` and empty metadata URI.
+- The directory records the supplied name and an empty metadata URI.
 
 Example:
 
 ```bash
-cast send "$FACTORY" 'createChama(address,address)' "$USDC" '0xTREASURY' \
+cast send "$FACTORY" 'createChama(address,address,string)' "$USDC" '0xTREASURY' 'Nairobi Women Savers' \
   --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
 ```
 

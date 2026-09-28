@@ -5,14 +5,16 @@ import { addresses, publicClient, type ChamaDeployment } from './contracts';
 import { chamaFactoryAbi } from '../abi/ChamaFactory';
 import { chamaDirectoryAbi } from '../abi/ChamaDirectory';
 import { ensureWalletNetwork } from './networkActions';
+import { normalizeChamaName } from './chamaNameCore';
 
-export async function createChamaOnchain(wallet: Wallet): Promise<ChamaDeployment> {
+export async function createChamaOnchain(wallet: Wallet, name: string): Promise<ChamaDeployment> {
+  const normalizedName = normalizeChamaName(name);
   if (!isEthereumWallet(wallet)) throw new Error('Connect an EVM wallet to create a chama.');
   await ensureWalletNetwork(wallet, publicClient.chain.id);
   const client = await wallet.getWalletClient();
   if (client.chain?.id !== publicClient.chain?.id) throw new Error('Wallet is not using Arc Testnet after the network switch.');
   const owner = wallet.address as Address;
-  const hash = await client.writeContract({ address: addresses.factory, abi: chamaFactoryAbi, functionName: 'createChama', args: [addresses.usdc, owner], chain: client.chain });
+  const hash = await client.writeContract({ address: addresses.factory, abi: chamaFactoryAbi, functionName: 'createChama', args: [addresses.usdc, owner, normalizedName], chain: client.chain });
   const receipt = await publicClient.waitForTransactionReceipt({ hash });
   if (receipt.status !== 'success') throw new Error('Chama deployment transaction reverted.');
   const created = await publicClient.getContractEvents({ address: addresses.factory, abi: chamaFactoryAbi, eventName: 'ChamaCreated', fromBlock: receipt.blockNumber, toBlock: receipt.blockNumber });

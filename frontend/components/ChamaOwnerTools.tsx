@@ -4,23 +4,26 @@ import { useState } from 'react';
 import { keccak256, stringToHex, type Address } from 'viem';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import { isEthereumWallet } from '@dynamic-labs/ethereum';
-import { Check, Copy, LoaderCircle, Mail, MessageCircle, ShieldCheck, Users, X } from 'lucide-react';
+import { Check, Copy, LoaderCircle, Mail, MessageCircle, Pencil, ShieldCheck, Users, X } from 'lucide-react';
 import { addresses, publicClient, type ChamaDeployment } from '../src/config/contracts';
 import { chamaDirectoryAbi } from '../src/abi/ChamaDirectory';
 import { membershipRegistryAbi } from '../src/abi/MembershipRegistry';
 import { ensureWalletNetwork } from '../src/config/networkActions';
 import { buildInviteShareLinks } from './inviteShareLinks';
+import { normalizeChamaName } from '../src/config/chamaNameCore';
 
-export function ChamaOwnerTools({ chama, isMember, onMembershipUpdated }: { chama: ChamaDeployment; isMember: boolean; onMembershipUpdated: () => void }) {
+export function ChamaOwnerTools({ chama, isMember, onMembershipUpdated, onNameUpdated }: { chama: ChamaDeployment; isMember: boolean; onMembershipUpdated: () => void; onNameUpdated: (deployment: ChamaDeployment) => void }) {
   const { primaryWallet } = useDynamicContext();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [inviteUrl, setInviteUrl] = useState('');
   const [copied, setCopied] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [name, setName] = useState(chama.name);
   const isOwner = primaryWallet?.address?.toLowerCase() === chama.owner.toLowerCase();
 
-  async function transact(action: 'enable-membership' | 'create-invite') {
+  async function transact(action: 'enable-membership' | 'create-invite' | 'rename-chama') {
     if (!primaryWallet || !isEthereumWallet(primaryWallet) || !isOwner) return;
     setBusy(true);
     setError('');
@@ -31,7 +34,24 @@ export function ChamaOwnerTools({ chama, isMember, onMembershipUpdated }: { cham
       const client = await primaryWallet.getWalletClient();
       if (client.chain?.id !== publicClient.chain?.id) throw new Error('Wallet is not on the configured network.');
 
-      if (action === 'enable-membership') {
+      if (action === 'rename-chama') {
+        const nextName = normalizeChamaName(name);
+        const hash = await client.writeContract({
+          address: addresses.directory,
+          abi: chamaDirectoryAbi,
+          functionName: 'setChamaName',
+          args: [chama.chamaId, nextName],
+          chain: client.chain,
+        });
+        const receipt = await publicClient.waitForTransactionReceipt({ hash });
+        if (receipt.status !== 'success') throw new Error('Chama rename transaction reverted.');
+        const raw = await publicClient.readContract({ address: addresses.directory, abi: chamaDirectoryAbi, functionName: 'chamas', args: [chama.chamaId] });
+        const entry = raw as readonly [Address, Address, Address, Address, Address, Address, string, string, boolean, boolean];
+        if (entry[0].toLowerCase() !== chama.owner.toLowerCase() || entry[6] !== nextName) throw new Error('Rename confirmed, but the directory did not return the updated chama name.');
+        onNameUpdated({ ...chama, name: entry[6] });
+        setName(entry[6]);
+        setEditingName(false);
+      } else if (action === 'enable-membership') {
         const hash = await client.writeContract({
           address: chama.registry,
           abi: membershipRegistryAbi,
@@ -92,6 +112,16 @@ export function ChamaOwnerTools({ chama, isMember, onMembershipUpdated }: { cham
       {!isMember && <div className="owner-action-row">
         <div className="owner-action-copy"><ShieldCheck size={19}/><div><strong>Activate your membership</strong><p className="muted">This wallet owns the chama but is not in its member registry yet. Approve your owner wallet so deposits are enabled.</p></div></div>
         <button className="primary" disabled={busy} onClick={() => void transact('enable-membership')}>{busy ? <LoaderCircle className="spin" size={16}/> : 'Approve my wallet'}</button>
+      </div>}
+      <div className="owner-action-row">
+        <div className="owner-action-copy"><Pencil size={19}/><div><strong>Chama name</strong><p className="muted">Current name: {chama.name || 'Unnamed chama'}</p></div></div>
+        {!editingName && <button className="secondary" onClick={() => { setName(chama.name); setEditingName(true); }}>Change name</button>}
+      </div>
+      {editingName && <div className="owner-action-row owner-name-editor">
+        <label className="field-label" htmlFor="owner-chama-name">New chama name</label>
+        <input id="owner-chama-name" className="input" value={name} maxLength={64} onChange={event => setName(event.target.value)} />
+        <button className="primary" disabled={busy || !name.trim() || name.trim() === chama.name} onClick={() => void transact('rename-chama')}>{busy ? <LoaderCircle className="spin" size={16}/> : 'Save name'}</button>
+        <button className="secondary" disabled={busy} onClick={() => { setName(chama.name); setEditingName(false); }}>Cancel</button>
       </div>}
       <div className="owner-action-row">
         <div className="owner-action-copy"><Users size={19}/><div><strong>Invite members</strong><p className="muted">Share a private link, valid for 30 days and up to 100 join requests.</p></div></div>
