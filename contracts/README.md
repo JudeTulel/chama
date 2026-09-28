@@ -173,18 +173,36 @@ If the explorer exposes `Contract` → `Verify & Publish`, choose Solidity, and 
 
 ### Default chama Standard JSON reference files
 
-The following Standard JSON compiler-input files were generated from the exact Foundry project settings used for the default Arc Testnet deployment. Upload each file in ArcScan's Standard JSON verification form, select the listed contract, and use compiler `0.8.24`, optimizer enabled with 200 runs, and EVM version `cancun`.
+The following Standard JSON compiler-input files were regenerated from the current committed Solidity sources using Solidity `0.8.24`, optimizer enabled with 200 runs, and EVM version `cancun`. They include transitive imports required by the selected contract. Upload the matching file in ArcScan's Standard JSON verification form and select the listed contract. The addresses below belong to an earlier deployment and must not be used to claim these newer sources match deployed bytecode; verify against contracts redeployed from the current source.
 
 | Contract | Deployed address | Standard JSON file | Contract identifier |
 |---|---|---|---|
-| ChamaFactory | `0xC5dE0e1630803E3d73d2c89f835f2CC9Db6E94D0` | `ChamaFactory.standard-input.json` | `src/ChamaFactory.sol:ChamaFactory` |
-| ChamaDirectory | `0xba1c6e925096c739303924cc87b705a65dacad59` | `ChamaDirectory.standard-input.json` | `src/ChamaDirectory.sol:ChamaDirectory` |
-| MembershipRegistry | `0xeea3897842f62f6cca3264914788b35834be6b29` | `MembershipRegistry.standard-input.json` | `src/MembershipRegistry.sol:MembershipRegistry` |
-| InsuranceFund | `0x1bf4ca174204f1ffb4b28bde0d26802fc5ced587` | `InsuranceFund.standard-input.json` | `src/InsuranceFund.sol:InsuranceFund` |
-| ChamaVault | `0x540ccf5860a32134278487e3aaba44c4ebdeb8de` | `ChamaVault.standard-input.json` | `src/ChamaVault.sol:ChamaVault` |
-| ChamaLending | `0xa11bd4b30af0d1c5390484b3deabc4db7d4c9dfe` | `ChamaLending.standard-input.json` | `src/ChamaLending.sol:ChamaLending` |
+| ChamaFactory | Prior deployment: `0xC5dE0e1630803E3d73d2c89f835f2CC9Db6E94D0` | `verification/standard-json/ChamaFactory.standard-input.json` | `src/ChamaFactory.sol:ChamaFactory` |
+| ChamaDirectory | Prior deployment: `0xba1c6e925096c739303924cc87b705a65dacad59` | `verification/standard-json/ChamaDirectory.standard-input.json` | `src/ChamaDirectory.sol:ChamaDirectory` |
+| MembershipRegistry | Prior deployment: `0xeea3897842f62f6cca3264914788b35834be6b29` | `verification/standard-json/MembershipRegistry.standard-input.json` | `src/MembershipRegistry.sol:MembershipRegistry` |
+| InsuranceFund | Prior deployment: `0x1bf4ca174204f1ffb4b28bde0d26802fc5ced587` | `verification/standard-json/InsuranceFund.standard-input.json` | `src/InsuranceFund.sol:InsuranceFund` |
+| ChamaVault | Prior deployment: `0x540ccf5860a32134278487e3aaba44c4ebdeb8de` | `verification/standard-json/ChamaVault.standard-input.json` | `src/ChamaVault.sol:ChamaVault` |
+| ChamaLending | Prior deployment: `0xa11bd4b30af0d1c5390484b3deabc4db7d4c9dfe` | `verification/standard-json/ChamaLending.standard-input.json` | `src/ChamaLending.sol:ChamaLending` |
 
-The files are in this `contracts/` directory. They contain source and compiler settings, not private keys. The default chama constructor arguments are:
+The files are in `contracts/verification/standard-json/`. They contain source and compiler settings, not private keys. The constructor arguments below describe only the prior deployment; use the arguments from your own deployment when verifying its deployed bytecode:
+
+To regenerate all six files from the `contracts/` directory, I used:
+
+```bash
+mkdir -p verification/standard-json
+for contract in ChamaFactory ChamaDirectory MembershipRegistry InsuranceFund ChamaVault ChamaLending; do
+  ARC_EXPLORER_API_KEY=local-standard-json-generation forge verify-contract \
+    --show-standard-json-input \
+    --compiler-version 0.8.24 \
+    --num-of-optimizations 200 \
+    --evm-version cancun \
+    0x0000000000000000000000000000000000000001 \
+    "src/${contract}.sol:${contract}" \
+    > "verification/standard-json/${contract}.standard-input.json"
+done
+```
+
+This only emits compiler input locally: the placeholder address is not queried or verified, no RPC is used, and the placeholder `ARC_EXPLORER_API_KEY` only satisfies the local Foundry config. Do not use the placeholder address or key for actual verification.
 
 ```text
 ChamaFactory: none
