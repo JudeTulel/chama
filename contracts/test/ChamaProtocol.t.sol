@@ -26,9 +26,13 @@ contract ChamaProtocolTest is Test {
         vm.prank(owner);
         (, ChamaFactory.Chama memory created) = factory.createChama(address(usdc), treasury);
         assertEq(created.owner, owner);
+        assertFalse(MembershipRegistry(created.registry).isMember(owner));
         assertEq(Ownable(created.registry).owner(), owner);
         assertEq(Ownable(created.vault).owner(), owner);
         assertEq(Ownable(created.lending).owner(), owner);
+        vm.prank(owner);
+        MembershipRegistry(created.registry).setMember(owner, true);
+        assertTrue(MembershipRegistry(created.registry).isMember(owner));
     }
 
     function testJoinCodeRequestAndOwnerApproval() public {
