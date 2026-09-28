@@ -8,6 +8,7 @@ import { erc20Abi, formatUnits, parseUnits, type Address } from 'viem';
 import { addresses, publicClient } from '../src/config/contracts';
 import { chamaVaultAbi } from '../src/abi/ChamaVault';
 import { chamaDirectoryAbi } from '../src/abi/ChamaDirectory';
+import { ensureWalletNetwork } from '../src/config/networkActions';
 import { ChamaOwnerTools } from './ChamaOwnerTools';
 import { readSelectedChama, selectedChamaEventName } from '../src/config/selectedChama';
 import type { ChamaDeployment } from '../src/config/contracts';
@@ -37,7 +38,13 @@ export default function DepositClient() {
 }
 
 function DepositHero() {
-  return <section className="section deposit-hero"><div className="deposit-copy"><span className="eyebrow">YOUR SAVINGS, GROWING TOGETHER</span><h1 className="hero-title">Small steps.<br/>Shared strength.</h1><p className="muted">Every contribution helps the whole chama move forward.</p></div><div className="illustration-frame"><Image src="/collective-savings.svg" alt="Two chama members nurturing a shared growing plant" width={720} height={520} priority/></div></section>;
+  return <section className="section deposit-hero">
+    <div className="deposit-copy">
+    <span className="eyebrow">YOUR SAVINGS, GROWING TOGETHER</span>
+    <h1 className="hero-title">Small steps.<br/>Shared strength.</h1>
+    <p className="muted">Every contribution helps the whole chama move forward.</p>
+    </div>
+    <div className="illustration-frame"><Image src="/savings.png" alt="Two chama members nurturing a shared growing plant" width={720} height={520} priority/></div></section>;
 }
 
 function DepositWallet() {
@@ -98,8 +105,9 @@ function DepositWallet() {
     setBusy(true);
     try {
       await assertChamaMatchesDirectory(chama);
+      await ensureWalletNetwork(primaryWallet, publicClient.chain.id);
       const client = await primaryWallet.getWalletClient();
-      if (client.chain?.id !== publicClient.chain?.id) throw new Error('Switch your wallet to the configured Arc network before submitting this transaction.');
+      if (client.chain?.id !== publicClient.chain?.id) throw new Error('Wallet is not using the configured network after the switch.');
       const allowance = await publicClient.readContract({ address: chama.usdc, abi: erc20Abi, functionName: 'allowance', args: [primaryWallet.address as Address, chama.vault] });
       if (allowance < assets) {
         setMessage('Approve USDC in your wallet to continue…');

@@ -8,6 +8,7 @@ import { ArrowLeft, CheckCircle2, Hash, ShieldCheck, Users } from 'lucide-react'
 import { addresses, publicClient, type ChamaDeployment } from '../../../src/config/contracts';
 import { chamaDirectoryAbi } from '../../../src/abi/ChamaDirectory';
 import { saveSelectedChama } from '../../../src/config/selectedChama';
+import { ensureWalletNetwork } from '../../../src/config/networkActions';
 
 const dynamicEnvironmentReady = Boolean(process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID);
 
@@ -44,8 +45,9 @@ function JoinWalletPage() {
     if (!primaryWallet?.address) { setError('Connect your wallet before requesting to join.'); return; }
     if (!isEthereumWallet(primaryWallet)) { setError('Connect an EVM wallet for Arc.'); return; }
     try {
+      await ensureWalletNetwork(primaryWallet, Number(process.env.NEXT_PUBLIC_CHAIN_ID || 5042002));
       const walletClient = await primaryWallet.getWalletClient();
-      if (walletClient.chain?.id !== Number(process.env.NEXT_PUBLIC_CHAIN_ID || 5042002)) throw new Error('Switch your wallet to Arc Testnet before submitting this request.');
+      if (walletClient.chain?.id !== Number(process.env.NEXT_PUBLIC_CHAIN_ID || 5042002)) throw new Error('Wallet is not using Arc Testnet after the network switch.');
       const hash = await walletClient.writeContract({ address: addresses.directory, abi: chamaDirectoryAbi, functionName: 'requestJoin', args: [keccak256(stringToHex(code))], chain: walletClient.chain });
       await publicClient.waitForTransactionReceipt({ hash });
       setError('Join request submitted. The chama owner must approve your wallet.');
