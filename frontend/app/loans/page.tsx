@@ -1,2 +1,5 @@
-import { AlertTriangle, Landmark } from 'lucide-react';
-export default function LoansPage(){return <main className="page"><section className="section"><div className="section-head"><h1 className="section-title">Loan management</h1><span className="pill">On-chain flow</span></div><div className="alert"><AlertTriangle size={18}/><span><strong>Loan actions are not wired yet.</strong><br/>The contract requires a member check, owner approval, collateral guarantees, and borrower activation. This screen intentionally shows no sample balances or requests.</span></div></section><section className="section"><div className="card"><Landmark size={20} color="#16845f"/><h2 className="section-title">Request a chama loan</h2><p className="muted">Live loan discovery, requests, approval, guarantee, activation, repayment and claims are not yet implemented in this page. Do not rely on placeholder finance screens.</p></div></section></main>}
+import { LoanHealthClient } from '../../components/LoanHealthClient';
+
+export default function LoansPage() {
+  return <LoanHealthClient mode="loans" />;
+}

@@ -126,6 +126,38 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #a7d7
 @media(max-width:480px){.returning-chama{gap:9px;padding:11px}.returning-chama>.pill{font-size:9px}}
 @media(max-width:700px){.owner-action-row{align-items:stretch;flex-direction:column}.owner-action-copy{max-width:none}.owner-action-row>.primary,.owner-action-row>.secondary{width:100%}.invite-created{grid-template-columns:1fr}.invite-created .secondary{width:100%;justify-content:center}}
 @media(max-width:420px){.share-modal{padding:23px 18px}.share-options{grid-template-columns:1fr}.share-option{justify-content:flex-start;padding-left:16px}}
+.loan-health-page .section-head>div:first-child{display:grid;gap:5px}
+.loan-health-page .section-title{margin:0}
+.loan-health-page .health-summary{display:flex;align-items:flex-start;gap:16px;padding:22px;background:linear-gradient(125deg,#f0faf3,#fff)}
+.health-summary-icon{display:grid;place-items:center;flex:none;width:46px;height:46px;border-radius:15px;background:var(--mint);color:var(--green)}
+.health-summary h2{margin:5px 0;font-size:clamp(22px,5vw,32px);letter-spacing:-.04em}
+.health-summary p{margin:0;font-size:12px;line-height:1.6}
+.loan-health-detail{display:grid;gap:0;margin-top:14px;padding:5px 16px}
+.loan-health-detail>div{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);font-size:11px}
+.loan-health-detail>div:last-child{border:0}
+.loan-health-detail span{color:var(--muted)}
+.loan-health-detail strong{white-space:nowrap;text-align:right}
+.loan-input-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}
+.loan-input-grid label{display:grid;gap:7px;color:var(--muted);font-size:11px;font-weight:700}
+.loan-input-grid .input,.loan-action-inline .input{width:100%;min-width:0;padding:12px;border:1px solid var(--line);border-radius:11px;background:#fbfdfb;color:var(--ink)}
+.loan-list{display:grid;gap:12px}
+.loan-card{display:grid;gap:13px;padding:17px}
+.loan-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.loan-card-head h3{margin:10px 0 4px;font-size:20px;letter-spacing:-.03em}
+.loan-card-head p{margin:0;font-size:11px}
+.loan-status{padding-top:6px;color:var(--green-dark);font-size:10px;font-weight:800;text-align:right}
+.loan-card .deposit-breakdown{margin:0}
+.loan-action-inline{display:flex;align-items:center;gap:9px}
+.loan-action-inline>.primary,.loan-action-inline>.secondary,.loan-card>.primary,.loan-card>.secondary,.history-row>.secondary{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:41px;padding:10px 13px;border:1px solid #dfe9e2;border-radius:11px;background:#fff;color:var(--green-dark);font-size:11px;font-weight:800}
+.loan-action-inline>.primary,.loan-card>.primary{border-color:var(--green);background:var(--green);color:#fff}
+.loan-action-inline>.input{flex:1}
+.loan-action-inline>button{flex:none}
+.loan-action-inline button:disabled,.loan-card button:disabled{opacity:.5;cursor:not-allowed}
+.history-row{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:13px}
+.history-row>strong{margin-left:auto;font-size:12px}
+.history-row>.muted{font-size:10px}
+.loan-health-page>.section>.feedback{margin:10px 0}
+@media(max-width:420px){.loan-input-grid{grid-template-columns:1fr}.loan-card-head{flex-direction:column}.loan-status{padding:0;text-align:left}.history-row>strong{margin-left:0}.loan-action-inline{align-items:stretch;flex-direction:column}.loan-action-inline>button{width:100%}}
 .welcome-flow .feedback{max-width:790px;margin:12px auto}
 .welcome-flow .landing-hero{min-height:calc(100vh - 220px)}
 @media(max-width:700px){.welcome-flow{width:min(100% - 28px,520px);min-height:auto;padding-top:14px}.welcome-flow .landing-hero{min-height:auto;gap:18px;padding:18px 0 24px}.flow-stepper{margin:5px 0 26px}.flow-heading{margin-bottom:22px}.choice-grid{grid-template-columns:1fr;gap:11px}.choice-card{min-height:160px;padding:19px}.wallet-choice{min-height:220px}.connected-card{flex-wrap:wrap}.connected-card>span{min-width:calc(100% - 40px)}.connected-card>.primary{width:100%;justify-content:center}.flow-form{padding:17px}.flow-footnote{line-height:1.6}}

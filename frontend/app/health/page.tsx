@@ -1,2 +1,5 @@
-import { ShieldCheck, TrendingUp, WalletCards } from 'lucide-react';
-export default function HealthPage(){return <main className="page"><section className="section"><div className="section-head"><h1 className="section-title">Chama health</h1><span className="pill">Metrics unavailable</span></div><div className="card"><ShieldCheck size={22} color="#16845f"/><h2 className="section-title">No fabricated health score</h2><p className="muted">The current contracts do not expose aggregate borrower and guarantor collateral or a protocol health ratio. Live pool values can be read, but a defensible solvency score needs an event indexer or an on-chain aggregate view. This screen intentionally does not display sample values.</p></div></section><section className="section"><div className="section-head"><h2 className="section-title">Health inputs to connect</h2></div><div className="metric-grid"><div className="metric"><WalletCards size={17} color="#16845f"/><strong>Vault</strong><span>Assets and liquidity</span></div><div className="metric"><TrendingUp size={17} color="#16845f"/><strong>Lending</strong><span>Principal and status</span></div><div className="metric"><ShieldCheck size={17} color="#16845f"/><strong>Insurance</strong><span>Reserve balance</span></div></div></section></main>}
+import { LoanHealthClient } from '../../components/LoanHealthClient';
+
+export default function HealthPage() {
+  return <LoanHealthClient mode="health" />;
+}
