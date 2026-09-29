@@ -156,8 +156,27 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #a7d7
 .history-row{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:13px}
 .history-row>strong{margin-left:auto;font-size:12px}
 .history-row>.muted{font-size:10px}
+.profile-wallet,.profile-empty{display:flex;align-items:center;gap:13px;padding:16px}
+.profile-wallet>div,.profile-empty>div{display:grid;flex:1;gap:4px;min-width:0}
+.profile-wallet>div>strong,.profile-empty>div>strong{font-size:12px}
+.profile-wallet>.pill{flex:none}
+.profile-icon{display:grid;place-items:center;flex:none;width:42px;height:42px;border-radius:14px;background:var(--mint);color:var(--green)}
+.profile-empty .muted{margin:0;font-size:11px;line-height:1.6}
+.profile-updated{margin:9px 2px 0;color:var(--muted);font-size:10px}
+.activity-list{display:grid;gap:9px}
+.activity-item{display:flex;align-items:center;gap:11px;padding:12px}
+.activity-icon{display:grid;place-items:center;flex:none;width:38px;height:38px;border-radius:13px;background:#e8f7ee;color:var(--green)}
+.activity-icon.activity-out{background:#fff1e8;color:#bd6b27}
+.activity-copy{display:grid;flex:1;gap:4px;min-width:0}
+.activity-copy strong{font-size:11px;line-height:1.4}
+.activity-copy>span,.activity-copy small{color:var(--muted);font-size:9px;line-height:1.45}
+.activity-amount{font-size:11px;white-space:nowrap}
+.activity-amount.activity-negative{color:#b86b2d}
+.activity-link{display:grid;place-items:center;flex:none;width:30px;height:30px;border-radius:10px;background:#f4f8f5;color:var(--green)}
+.profile-footnote{display:flex;align-items:flex-start;gap:6px;margin-top:12px}
+.profile-footnote svg{flex:none;margin-top:1px}
 .loan-health-page>.section>.feedback{margin:10px 0}
-@media(max-width:420px){.loan-input-grid{grid-template-columns:1fr}.loan-card-head{flex-direction:column}.loan-status{padding:0;text-align:left}.history-row>strong{margin-left:0}.loan-action-inline{align-items:stretch;flex-direction:column}.loan-action-inline>button{width:100%}}
+@media(max-width:420px){.loan-input-grid{grid-template-columns:1fr}.loan-card-head{flex-direction:column}.loan-status{padding:0;text-align:left}.history-row>strong{margin-left:0}.loan-action-inline{align-items:stretch;flex-direction:column}.loan-action-inline>button{width:100%}.activity-item{gap:8px;padding:10px}.activity-amount{font-size:10px}.profile-wallet>.pill{font-size:9px}}
 .welcome-flow .feedback{max-width:790px;margin:12px auto}
 .welcome-flow .landing-hero{min-height:calc(100vh - 220px)}
 @media(max-width:700px){.welcome-flow{width:min(100% - 28px,520px);min-height:auto;padding-top:14px}.welcome-flow .landing-hero{min-height:auto;gap:18px;padding:18px 0 24px}.flow-stepper{margin:5px 0 26px}.flow-heading{margin-bottom:22px}.choice-grid{grid-template-columns:1fr;gap:11px}.choice-card{min-height:160px;padding:19px}.wallet-choice{min-height:220px}.connected-card{flex-wrap:wrap}.connected-card>span{min-width:calc(100% - 40px)}.connected-card>.primary{width:100%;justify-content:center}.flow-form{padding:17px}.flow-footnote{line-height:1.6}}
