@@ -78,7 +78,17 @@ function JoinWalletPage() {
       const walletClient = await primaryWallet.getWalletClient();
       if (walletClient.chain?.id !== publicClient.chain.id) throw new Error(`Wallet is not using ${publicClient.chain.name} after the network switch.`);
       const hash = await walletClient.writeContract({ address: addresses.directory, abi: chamaDirectoryAbi, functionName: 'requestJoin', args: [keccak256(stringToHex(code))], chain: walletClient.chain });
-      await publicClient.waitForTransactionReceipt({ hash });
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      if (receipt.status !== 'success') throw new Error('Join request transaction reverted on-chain.');
+      const requestEvents = await publicClient.getContractEvents({
+        address: addresses.directory,
+        abi: chamaDirectoryAbi,
+        eventName: 'JoinRequested',
+        args: { chamaId: chama?.chamaId, applicant: primaryWallet.address as Address },
+        fromBlock: receipt.blockNumber,
+        toBlock: receipt.blockNumber,
+      });
+      if (requestEvents.length === 0) throw new Error('Transaction confirmed, but no join request was recorded for this wallet.');
       setError('Join request submitted. The chama owner must approve your wallet.');
     } catch (e) { setError(e instanceof Error ? e.message : 'Join request failed.'); }
     finally { setRequestingJoin(false); }

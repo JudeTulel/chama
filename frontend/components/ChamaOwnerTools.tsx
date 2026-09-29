@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { keccak256, stringToHex, type Address } from 'viem';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import { isEthereumWallet } from '@dynamic-labs/ethereum';
@@ -11,6 +11,7 @@ import { membershipRegistryAbi } from '../src/abi/MembershipRegistry';
 import { ensureWalletNetwork } from '../src/config/networkActions';
 import { buildInviteShareLinks } from './inviteShareLinks';
 import { normalizeChamaName } from '../src/config/chamaNameCore';
+import { collectPendingJoinRequests, type PendingJoinRequest } from '../src/config/pendingJoinRequestsCore';
 
 export function ChamaOwnerTools({ chama, isMember, onMembershipUpdated, onNameUpdated }: { chama: ChamaDeployment; isMember: boolean; onMembershipUpdated: () => void; onNameUpdated: (deployment: ChamaDeployment) => void }) {
   const { primaryWallet } = useDynamicContext();
@@ -21,9 +22,73 @@ export function ChamaOwnerTools({ chama, isMember, onMembershipUpdated, onNameUp
   const [shareOpen, setShareOpen] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState(chama.name);
+  const [pendingRequests, setPendingRequests] = useState<PendingJoinRequest[]>([]);
+  const [loadingRequests, setLoadingRequests] = useState(false);
+  const requestApplicants = useRef(new Map<string, Address>());
+  const lastScannedBlock = useRef<bigint | null>(null);
+  const requestRefreshInFlight = useRef(false);
   const isOwner = primaryWallet?.address?.toLowerCase() === chama.owner.toLowerCase();
 
-  async function transact(action: 'enable-membership' | 'create-invite' | 'rename-chama') {
+  const refreshPendingRequests = useCallback(async () => {
+    if (!isOwner || requestRefreshInFlight.current) return;
+    requestRefreshInFlight.current = true;
+    setLoadingRequests(true);
+    setError('');
+    try {
+      const latestBlock = await publicClient.getBlockNumber();
+      const blockWindow = BigInt(10_000);
+      const firstBlock = lastScannedBlock.current === null ? BigInt(0) : lastScannedBlock.current + BigInt(1);
+      for (let fromBlock = firstBlock; fromBlock <= latestBlock; fromBlock += blockWindow) {
+        const toBlock = fromBlock + blockWindow - BigInt(1) < latestBlock
+          ? fromBlock + blockWindow - BigInt(1)
+          : latestBlock;
+        const events = await publicClient.getContractEvents({
+          address: addresses.directory,
+          abi: chamaDirectoryAbi,
+          eventName: 'JoinRequested',
+          args: { chamaId: chama.chamaId },
+          fromBlock,
+          toBlock,
+        });
+        for (const event of events) {
+          const applicant = event.args.applicant;
+          if (applicant) requestApplicants.current.set(applicant.toLowerCase(), applicant);
+        }
+      }
+      lastScannedBlock.current = latestBlock;
+      const applicants = [...requestApplicants.current.values()];
+      const requests = await Promise.all(applicants.map(async applicant => {
+        const current = await publicClient.readContract({
+          address: addresses.directory,
+          abi: chamaDirectoryAbi,
+          functionName: 'joinRequests',
+          args: [chama.chamaId, applicant],
+        });
+        return { applicant, createdAt: current[0], processed: current[1] };
+      }));
+      setPendingRequests(collectPendingJoinRequests(requests));
+    } catch (cause) {
+      setError(cause instanceof Error ? `Could not load pending join requests: ${cause.message}` : 'Could not load pending join requests.');
+    } finally {
+      setLoadingRequests(false);
+      requestRefreshInFlight.current = false;
+    }
+  }, [chama.chamaId, isOwner]);
+
+  useEffect(() => {
+    requestApplicants.current.clear();
+    lastScannedBlock.current = null;
+    setPendingRequests([]);
+  }, [chama.chamaId]);
+
+  useEffect(() => {
+    if (!isOwner) return;
+    void refreshPendingRequests();
+    const interval = window.setInterval(() => void refreshPendingRequests(), 60_000);
+    return () => window.clearInterval(interval);
+  }, [isOwner, refreshPendingRequests]);
+
+  async function transact(action: 'enable-membership' | 'create-invite' | 'rename-chama' | 'approve-join' | 'reject-join', applicant?: Address) {
     if (!primaryWallet || !isEthereumWallet(primaryWallet) || !isOwner) return;
     setBusy(true);
     setError('');
@@ -34,7 +99,21 @@ export function ChamaOwnerTools({ chama, isMember, onMembershipUpdated, onNameUp
       const client = await primaryWallet.getWalletClient();
       if (client.chain?.id !== publicClient.chain?.id) throw new Error('Wallet is not on the configured network.');
 
-      if (action === 'rename-chama') {
+      if (action === 'approve-join' || action === 'reject-join') {
+        if (!applicant) throw new Error('Select a join request first.');
+        const approved = action === 'approve-join';
+        const hash = await client.writeContract({
+          address: addresses.directory,
+          abi: chamaDirectoryAbi,
+          functionName: 'approveJoin',
+          args: [chama.chamaId, applicant, approved],
+          chain: client.chain,
+        });
+        const receipt = await publicClient.waitForTransactionReceipt({ hash });
+        if (receipt.status !== 'success') throw new Error(`Join request ${approved ? 'approval' : 'rejection'} transaction reverted.`);
+        setPendingRequests(current => current.filter(request => request.applicant.toLowerCase() !== applicant.toLowerCase()));
+        await refreshPendingRequests();
+      } else if (action === 'rename-chama') {
         const nextName = normalizeChamaName(name);
         const hash = await client.writeContract({
           address: addresses.directory,
@@ -123,6 +202,17 @@ export function ChamaOwnerTools({ chama, isMember, onMembershipUpdated, onNameUp
         <button className="primary" disabled={busy || !name.trim() || name.trim() === chama.name} onClick={() => void transact('rename-chama')}>{busy ? <LoaderCircle className="spin" size={16}/> : 'Save name'}</button>
         <button className="secondary" disabled={busy} onClick={() => { setName(chama.name); setEditingName(false); }}>Cancel</button>
       </div>}
+      <div className="owner-action-row">
+        <div className="owner-action-copy"><Users size={19}/><div><strong>Pending join requests</strong><p className="muted">Review wallets that requested to join using an invite.</p></div></div>
+        <button className="secondary" onClick={() => void refreshPendingRequests()} disabled={loadingRequests}>{loadingRequests ? <LoaderCircle className="spin" size={16}/> : 'Refresh requests'}</button>
+      </div>
+      {loadingRequests && pendingRequests.length === 0 && <p className="muted">Loading join requests…</p>}
+      {!loadingRequests && pendingRequests.length === 0 && <p className="muted">No pending join requests.</p>}
+      {pendingRequests.map(request => <div className="owner-action-row" key={request.applicant.toLowerCase()}>
+        <div className="owner-action-copy"><Users size={18}/><div><strong>{request.applicant.slice(0, 6)}…{request.applicant.slice(-4)}</strong><p className="muted">Requested {new Date(Number(request.createdAt) * 1000).toLocaleString()}</p></div></div>
+        <button className="primary" disabled={busy} onClick={() => void transact('approve-join', request.applicant)}>{busy ? <LoaderCircle className="spin" size={16}/> : 'Approve'}</button>
+        <button className="secondary" disabled={busy} onClick={() => void transact('reject-join', request.applicant)}>Reject</button>
+      </div>)}
       <div className="owner-action-row">
         <div className="owner-action-copy"><Users size={19}/><div><strong>Invite members</strong><p className="muted">Share a private link, valid for 30 days and up to 100 join requests.</p></div></div>
         <button className="primary" onClick={() => { setShareOpen(true); if (!inviteUrl && !busy) void transact('create-invite'); }}><Users size={16}/> Invite</button>
