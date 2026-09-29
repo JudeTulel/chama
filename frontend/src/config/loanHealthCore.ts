@@ -5,6 +5,10 @@ export function calculateBorrowingCapacity(memberAssetValue: bigint, multiplierB
   return memberAssetValue * multiplierBps / BigInt(10_000);
 }
 
+export function getRepaymentAmount(outstanding: bigint, currentInterest: bigint): bigint {
+  return outstanding + currentInterest + BigInt(1);
+}
+
 export function getAdditionalGuaranteeShares(principal: bigint, alreadyGuaranteedShares: bigint, borrowerShares: bigint): bigint {
   const borrowerCollateral = borrowerShares < principal ? borrowerShares : principal;
   const covered = alreadyGuaranteedShares + borrowerCollateral;

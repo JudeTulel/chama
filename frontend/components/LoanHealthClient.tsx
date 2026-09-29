@@ -13,7 +13,7 @@ import { membershipRegistryAbi } from '../src/abi/MembershipRegistry';
 import { ensureWalletNetwork } from '../src/config/networkActions';
 import { readSelectedChama, selectedChamaEventName } from '../src/config/selectedChama';
 import type { ChamaDeployment } from '../src/config/contracts';
-import { calculateBorrowingCapacity, getAdditionalGuaranteeShares, getLoanStatusLabel, summarizeActiveLoans } from '../src/config/loanHealthCore';
+import { calculateBorrowingCapacity, getAdditionalGuaranteeShares, getLoanStatusLabel, getRepaymentAmount, summarizeActiveLoans } from '../src/config/loanHealthCore';
 
 type LoanRecord = {
   id: bigint; borrower: Address; principal: bigint; outstanding: bigint; rateBps: bigint;
@@ -172,10 +172,25 @@ export function LoanHealthClient({ mode }: { mode: 'loans' | 'health' }) {
   }
 
   async function repay(loan: LoanRecord) {
-    if (!chama) return;
-    const owed = loan.outstanding + loan.accruedInterest;
-    if (snapshot && owed > snapshot.userBalance) { setError('Wallet USDC balance is below the live repayment amount.'); return; }
-    await send('repay', [loan.id, owed], 'Repayment confirmed; locked collateral was released.', owed);
+    if (!chama || !snapshot) return;
+    setError(''); setMessage('Checking current repayment amount…');
+    try {
+      const [currentLoan, currentInterest, walletBalance] = await Promise.all([
+        publicClient.readContract({ address: chama.lending, abi: chamaLendingAbi, functionName: 'loans', args: [loan.id] }),
+        publicClient.readContract({ address: chama.lending, abi: chamaLendingAbi, functionName: 'accruedInterest', args: [loan.id] }),
+        publicClient.readContract({ address: chama.usdc, abi: erc20Abi, functionName: 'balanceOf', args: [primaryWallet?.address as Address] }),
+      ]);
+      if (Number(currentLoan[9]) !== 1 || currentLoan[0].toLowerCase() !== primaryWallet?.address?.toLowerCase()) {
+        throw new Error('This loan is no longer active for the connected borrower. Refresh and check its current status.');
+      }
+      const owed = getRepaymentAmount(currentLoan[2], currentInterest);
+      if (owed > walletBalance) throw new Error(`Current repayment amount is $${fmt(owed)} including a 1-unit interest-rounding buffer; wallet balance is $${fmt(walletBalance)}.`);
+      setMessage(`Repaying current balance $${fmt(owed)} including accrued interest…`);
+      await send('repay', [loan.id, owed], 'Repayment confirmed; locked collateral was released.', owed);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not calculate the current repayment amount.');
+      setMessage('');
+    }
   }
 
   const header = mode === 'loans' ? 'Loan management' : 'Chama health';
