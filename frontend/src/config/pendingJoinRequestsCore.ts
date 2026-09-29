@@ -9,6 +9,20 @@ export type PendingJoinRequest = {
   createdAt: bigint;
 };
 
+export type BlockRange = { fromBlock: bigint; toBlock: bigint };
+
+export function getPendingRequestBlockRanges(startBlock: bigint, latestBlock: bigint, blockWindow = BigInt(5_000)): BlockRange[] {
+  if (blockWindow <= BigInt(0)) throw new Error('Block window must be positive.');
+  const ranges: BlockRange[] = [];
+  for (let fromBlock = startBlock; fromBlock <= latestBlock; fromBlock += blockWindow) {
+    const toBlock = fromBlock + blockWindow - BigInt(1) < latestBlock
+      ? fromBlock + blockWindow - BigInt(1)
+      : latestBlock;
+    ranges.push({ fromBlock, toBlock });
+  }
+  return ranges;
+}
+
 export function collectPendingJoinRequests(requests: JoinRequestLog[]): PendingJoinRequest[] {
   return requests
     .filter(request => request.createdAt !== BigInt(0))

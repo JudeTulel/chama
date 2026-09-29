@@ -5,13 +5,13 @@ import { keccak256, stringToHex, type Address } from 'viem';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import { isEthereumWallet } from '@dynamic-labs/ethereum';
 import { Check, Copy, LoaderCircle, Mail, MessageCircle, Pencil, ShieldCheck, Users, X } from 'lucide-react';
-import { addresses, publicClient, type ChamaDeployment } from '../src/config/contracts';
+import { addresses, directoryDeploymentBlock, publicClient, type ChamaDeployment } from '../src/config/contracts';
 import { chamaDirectoryAbi } from '../src/abi/ChamaDirectory';
 import { membershipRegistryAbi } from '../src/abi/MembershipRegistry';
 import { ensureWalletNetwork } from '../src/config/networkActions';
 import { buildInviteShareLinks } from './inviteShareLinks';
 import { normalizeChamaName } from '../src/config/chamaNameCore';
-import { collectPendingJoinRequests, type PendingJoinRequest } from '../src/config/pendingJoinRequestsCore';
+import { collectPendingJoinRequests, getPendingRequestBlockRanges, type PendingJoinRequest } from '../src/config/pendingJoinRequestsCore';
 
 export function ChamaOwnerTools({ chama, isMember, onMembershipUpdated, onNameUpdated }: { chama: ChamaDeployment; isMember: boolean; onMembershipUpdated: () => void; onNameUpdated: (deployment: ChamaDeployment) => void }) {
   const { primaryWallet } = useDynamicContext();
@@ -36,12 +36,9 @@ export function ChamaOwnerTools({ chama, isMember, onMembershipUpdated, onNameUp
     setError('');
     try {
       const latestBlock = await publicClient.getBlockNumber();
-      const blockWindow = BigInt(10_000);
-      const firstBlock = lastScannedBlock.current === null ? BigInt(0) : lastScannedBlock.current + BigInt(1);
-      for (let fromBlock = firstBlock; fromBlock <= latestBlock; fromBlock += blockWindow) {
-        const toBlock = fromBlock + blockWindow - BigInt(1) < latestBlock
-          ? fromBlock + blockWindow - BigInt(1)
-          : latestBlock;
+      const firstBlock = lastScannedBlock.current === null ? directoryDeploymentBlock : lastScannedBlock.current + BigInt(1);
+      const ranges = getPendingRequestBlockRanges(firstBlock, latestBlock);
+      for (const { fromBlock, toBlock } of ranges) {
         const events = await publicClient.getContractEvents({
           address: addresses.directory,
           abi: chamaDirectoryAbi,
