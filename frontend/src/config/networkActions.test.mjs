@@ -34,3 +34,12 @@ test('stops before transactions if the wallet refuses the network switch', async
 
   await assert.rejects(ensureWalletNetwork(wallet, 5042002), /User rejected network switch/);
 });
+
+test('rejects a switch that resolves without changing the wallet chain', async () => {
+  const wallet = {
+    async getNetwork() { return 1; },
+    async switchNetwork() {},
+  };
+
+  await assert.rejects(ensureWalletNetwork(wallet, 5042002), /did not switch to chain 5042002/i);
+});
