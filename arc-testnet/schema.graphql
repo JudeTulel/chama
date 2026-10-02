@@ -13,8 +13,15 @@ type Chama @entity(immutable: false) {
   acceptingMembers: Boolean!
   createdAt: BigInt!
   createdBlock: BigInt!
+
   joinRequests: [JoinRequest!]! @derivedFrom(field: "chama")
   invites: [Invite!]! @derivedFrom(field: "chama")
+  loans: [Loan!]! @derivedFrom(field: "chama")
+}
+
+type ContractIndex @entity(immutable: false) {
+  id: ID!
+  chama: Chama!
 }
 
 type Invite @entity(immutable: false) {
@@ -40,4 +47,17 @@ type JoinRequest @entity(immutable: false) {
   requestedAt: BigInt!
   requestedBlock: BigInt!
   processedAt: BigInt
+}
+
+type Loan @entity(immutable: false) {
+  id: ID!
+  chama: Chama!
+  borrower: Bytes!
+  principal: BigInt!
+  outstanding: BigInt!
+  lockedShares: BigInt!
+  borrowerLockedShares: BigInt!
+  status: Int!
+  createdAt: BigInt!
+  updatedAt: BigInt!
 }

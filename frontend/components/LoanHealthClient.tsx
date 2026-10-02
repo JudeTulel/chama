@@ -5,7 +5,7 @@ import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import { isEthereumWallet } from '@dynamic-labs/ethereum';
 import { Activity, Check, CircleAlert, Clock3, Coins, LoaderCircle, RefreshCw, ShieldCheck, WalletCards } from 'lucide-react';
 import { erc20Abi, formatUnits, parseUnits, type Address } from 'viem';
-import { addresses, publicClient } from '../src/config/contracts';
+import { addresses, publicClient, subgraphUrl } from '../src/config/contracts';
 import { chamaLendingAbi } from '../src/abi/ChamaLending';
 import { chamaVaultAbi } from '../src/abi/ChamaVault';
 import { chamaDirectoryAbi } from '../src/abi/ChamaDirectory';
@@ -13,7 +13,7 @@ import { membershipRegistryAbi } from '../src/abi/MembershipRegistry';
 import { ensureWalletNetwork } from '../src/config/networkActions';
 import { readSelectedChama, selectedChamaEventName } from '../src/config/selectedChama';
 import type { ChamaDeployment } from '../src/config/contracts';
-import { calculateBorrowingCapacity, getAdditionalGuaranteeShares, getLoanStatusLabel, getRepaymentAmount, summarizeActiveLoans } from '../src/config/loanHealthCore';
+import { calculateBorrowingCapacity, getAdditionalGuaranteeShares, getLoanStatusLabel, getRepaymentAmount, loadSubgraphHealth, summarizeActiveLoans, type SubgraphHealth } from '../src/config/loanHealthCore';
 
 type LoanRecord = {
   id: bigint; borrower: Address; principal: bigint; outstanding: bigint; rateBps: bigint;
@@ -25,6 +25,7 @@ type Snapshot = {
   insuranceBalance: bigint; outstandingPrincipal: bigint; userShares: bigint;
   userAssets: bigint; userBalance: bigint; isMember: boolean; owner: Address;
   multiplierBps: bigint; paused: boolean; truncated: boolean;
+  subgraphHealth: SubgraphHealth; subgraphCollateralAssets: bigint;
 };
 const MAX_LOANS_TO_READ = 25;
 const ZERO = BigInt(0);
@@ -82,7 +83,14 @@ export function LoanHealthClient({ mode }: { mode: 'loans' | 'health' }) {
         publicClient.readContract({ address: chama.lending, abi: chamaLendingAbi, functionName: 'maxLoanMultiplierBps' }),
         publicClient.readContract({ address: chama.lending, abi: chamaLendingAbi, functionName: 'paused' }),
       ]);
-      const userAssets = userShares > ZERO ? await publicClient.readContract({ address: chama.vault, abi: chamaVaultAbi, functionName: 'convertToAssets', args: [userShares] }) : ZERO;
+      const [userAssets, subgraphHealth] = await Promise.all([
+        userShares > ZERO ? publicClient.readContract({ address: chama.vault, abi: chamaVaultAbi, functionName: 'convertToAssets', args: [userShares] }) : Promise.resolve(ZERO),
+        mode === 'health' ? loadSubgraphHealth(subgraphUrl, chama.chamaId) : Promise.resolve({ activeLoans: ZERO, outstandingPrincipal: ZERO, lockedShares: ZERO, borrowerLockedShares: ZERO }),
+      ]);
+      const collateralShares = subgraphHealth.lockedShares + subgraphHealth.borrowerLockedShares;
+      const subgraphCollateralAssets = collateralShares > ZERO
+        ? await publicClient.readContract({ address: chama.vault, abi: chamaVaultAbi, functionName: 'convertToAssets', args: [collateralShares] })
+        : ZERO;
       const count = Number(nextId > BigInt(MAX_LOANS_TO_READ) ? BigInt(MAX_LOANS_TO_READ) : nextId);
       const first = nextId - BigInt(count);
       const loans: LoanRecord[] = [];
@@ -99,7 +107,7 @@ export function LoanHealthClient({ mode }: { mode: 'loans' | 'health' }) {
         }));
         loans.push(...rows);
       }
-      setSnapshot({ loans: loans.reverse(), nextId, totalAssets, liquidAssets, insuranceBalance, outstandingPrincipal, userShares, userAssets, userBalance, isMember, owner, multiplierBps, paused, truncated: nextId > BigInt(MAX_LOANS_TO_READ) });
+      setSnapshot({ loans: loans.reverse(), nextId, totalAssets, liquidAssets, insuranceBalance, outstandingPrincipal, userShares, userAssets, userBalance, isMember, owner, multiplierBps, paused, subgraphHealth, subgraphCollateralAssets, truncated: nextId > BigInt(MAX_LOANS_TO_READ) });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not read the selected chama contracts.');
       setSnapshot(null);
@@ -204,13 +212,13 @@ export function LoanHealthClient({ mode }: { mode: 'loans' | 'health' }) {
     </section>
 
     {mode === 'health' && snapshot && activeSummary && <>
-      <section className="section"><div className="card health-summary">
-        <div className="health-summary-icon"><Activity size={21}/></div><div><span className="eyebrow">Solvency metric</span><h2>Health score unavailable</h2><p className="muted">The contracts do not expose aggregate borrower and guarantor collateral. A numeric score or coverage ratio would be misleading.</p></div>
+    <section className="section"><div className="card health-summary">
+      <div className="health-summary-icon"><Activity size={21}/></div><div><span className="eyebrow">Solvency metric · subgraph</span><h2>{(() => { const debt = snapshot.subgraphHealth.outstandingPrincipal; return debt === ZERO ? 'No active debt' : `${Number(snapshot.subgraphCollateralAssets * BigInt(100) / debt) / 100}% coverage`; })()}</h2><p className="muted">Active loans and locked borrower/guarantor shares are aggregated by the Arc subgraph; shares are converted to current vault assets before calculating coverage.</p></div>
       </div></section>
       <section className="section"><div className="section-head"><h2 className="section-title">Live protocol inputs</h2><span className="pill">{snapshot.truncated ? 'Partial loan scan' : 'On-chain reads'}</span></div>
-        <div className="metric-grid"><div className="metric"><Activity size={17} color="#16845f"/><strong>{snapshot.truncated ? `≥${activeSummary.activeLoans}` : activeSummary.activeLoans}</strong><span>Active loans {snapshot.truncated ? 'observed in latest 25' : 'on-chain'}</span></div><div className="metric"><Coins size={17} color="#16845f"/><strong>${fmt(snapshot.totalAssets)}</strong><span>Vault assets · contract read</span></div><div className="metric"><ShieldCheck size={17} color="#16845f"/><strong>${fmt(snapshot.outstandingPrincipal)}</strong><span>Outstanding principal · contract read</span></div></div>
-        <div className="card loan-health-detail"><div><span>Available vault liquidity</span><strong>${fmt(snapshot.liquidAssets)}</strong></div><div><span>Insurance reserve balance</span><strong>${fmt(snapshot.insuranceBalance)}</strong></div><div><span>Active collateral coverage</span><strong>Not exposed by current contracts</strong></div></div>
-        <p className="footnote">These are live contract values, not a health score. The vault’s outstanding principal is an aggregate contract read; active loan count is derived from the loan records currently scanned. The lending contract does not provide a complete guarantor/collateral aggregate or protocol health ratio, so no coverage percentage, risk grade, or solvency score is inferred.</p>
+        <div className="metric-grid"><div className="metric"><Activity size={17} color="#16845f"/><strong>{snapshot.subgraphHealth.activeLoans.toString()}</strong><span>Active loans · subgraph</span></div><div className="metric"><Coins size={17} color="#16845f"/><strong>${fmt(snapshot.subgraphHealth.outstandingPrincipal)}</strong><span>Active debt · subgraph</span></div><div className="metric"><ShieldCheck size={17} color="#16845f"/><strong>${fmt(snapshot.subgraphCollateralAssets)}</strong><span>Locked collateral assets</span></div></div>
+        <div className="card loan-health-detail"><div><span>Available vault liquidity</span><strong>${fmt(snapshot.liquidAssets)}</strong></div><div><span>Insurance reserve balance</span><strong>${fmt(snapshot.insuranceBalance)}</strong></div><div><span>Coverage formula</span><strong>Locked collateral ÷ active debt</strong></div></div>
+        <p className="footnote">The Graph supplies the aggregate active-loan and collateral view. Direct contract reads remain authoritative for vault liquidity, insurance balance, transactions, and permission checks.</p>
       </section>
     </>}
 

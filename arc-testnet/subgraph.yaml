@@ -36,3 +36,34 @@ dataSources:
         - event: ChamaStatusUpdated(indexed uint256,bool,bool)
           handler: handleChamaStatusUpdated
       file: ./src/directory.ts
+
+templates:
+  - kind: ethereum/contract
+    name: ChamaLending
+    network: arc-testnet
+    source:
+      abi: ChamaLending
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - Chama
+        - Loan
+      abis:
+        - name: ChamaLending
+          file: ./abis/ChamaLending.json
+      eventHandlers:
+        - event: LoanRequested(indexed uint256,indexed address,uint256)
+          handler: handleLoanRequested
+        - event: LoanApprovalUpdated(indexed uint256,bool)
+          handler: handleLoanApprovalUpdated
+        - event: Guaranteed(indexed uint256,indexed address,uint256)
+          handler: handleGuaranteed
+        - event: LoanActivated(indexed uint256)
+          handler: handleLoanActivated
+        - event: Repaid(indexed uint256,uint256,uint256)
+          handler: handleRepaid
+        - event: Liquidated(indexed uint256,uint256,uint256)
+          handler: handleLiquidated
+      file: ./src/lending.ts

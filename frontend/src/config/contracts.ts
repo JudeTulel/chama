@@ -8,7 +8,7 @@ const env = {
   factory: process.env.NEXT_PUBLIC_CHAMA_FACTORY_ADDRESS || '0x60Aea690c463Ee4d98cA794530866ad595cA0B98',
   directory: process.env.NEXT_PUBLIC_CHAMA_DIRECTORY_ADDRESS || '0x35e87026e77618fE9411F278f3870554aec6398f',
   directoryDeploymentBlock: BigInt(process.env.NEXT_PUBLIC_CHAMA_DIRECTORY_DEPLOYMENT_BLOCK || '64486284'),
-  subgraphUrl: process.env.NEXT_PUBLIC_SUBGRAPH_URL || 'https://api.studio.thegraph.com/query/1762853/arc-testnet/v0.0.1',
+  subgraphUrl: process.env.NEXT_PUBLIC_SUBGRAPH_URL || 'https://api.studio.thegraph.com/query/1762853/arc-testnet/v0.0.2',
 };
 export const arc = defineChain({ id: env.chainId, name: env.chainId === 5042002 ? 'Arc Testnet' : 'Arc', nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 6 }, rpcUrls: { default: { http: [env.rpcUrl] } } });
 export const addresses = { usdc: getAddress(env.usdc), factory: getAddress(env.factory), directory: getAddress(env.directory) } as const;

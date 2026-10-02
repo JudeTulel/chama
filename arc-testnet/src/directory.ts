@@ -1,14 +1,12 @@
-import { BigInt, Bytes, Address } from '@graphprotocol/graph-ts';
+import { BigInt, Address } from '@graphprotocol/graph-ts';
 import {
-  ChamaRegistered,
-  ChamaNameUpdated,
-  InviteCreated,
-  InviteRevoked,
-  JoinRequested,
-  JoinProcessed,
-  ChamaStatusUpdated,
+  ChamaRegistered, ChamaNameUpdated, InviteCreated, InviteRevoked,
+  JoinRequested, JoinProcessed, ChamaStatusUpdated,
 } from '../generated/ChamaDirectory/ChamaDirectory';
-import { Chama, Invite, JoinRequest } from '../generated/schema';
+import { Chama, Invite, JoinRequest, ContractIndex } from '../generated/schema';
+import { ChamaDirectory } from '../generated/ChamaDirectory/ChamaDirectory';
+import { ChamaLending } from '../generated/templates';
+
 
 function chamaKey(id: BigInt): string { return id.toString(); }
 function requestKey(chamaId: BigInt, applicant: Address): string { return chamaId.toString() + '-' + applicant.toHexString(); }
@@ -28,6 +26,21 @@ export function handleChamaRegistered(event: ChamaRegistered): void {
   chama.acceptingMembers = true;
   chama.createdAt = event.block.timestamp;
   chama.createdBlock = event.block.number;
+
+  let directory = ChamaDirectory.bind(event.address);
+  let result = directory.try_chamas(event.params.chamaId);
+  if (!result.reverted) {
+    let data = result.value;
+    chama.usdc = data.value1;
+    chama.registry = data.value2;
+    chama.insuranceFund = data.value3;
+    chama.vault = data.value4;
+    chama.lending = data.value5;
+    let index = new ContractIndex(data.value5.toHexString());
+    index.chama = chama.id;
+    index.save();
+    ChamaLending.create(data.value5);
+  }
   chama.save();
 }
 
