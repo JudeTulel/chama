@@ -1,0 +1,43 @@
+type Chama @entity(immutable: false) {
+  id: ID!
+  chamaId: BigInt!
+  owner: Bytes!
+  usdc: Bytes!
+  registry: Bytes!
+  insuranceFund: Bytes!
+  vault: Bytes!
+  lending: Bytes!
+  name: String!
+  metadataURI: String!
+  active: Boolean!
+  acceptingMembers: Boolean!
+  createdAt: BigInt!
+  createdBlock: BigInt!
+  joinRequests: [JoinRequest!]! @derivedFrom(field: "chama")
+  invites: [Invite!]! @derivedFrom(field: "chama")
+}
+
+type Invite @entity(immutable: false) {
+  id: ID!
+  codeHash: Bytes!
+  chama: Chama!
+  expiresAt: BigInt!
+  maxUses: BigInt!
+  uses: BigInt!
+  active: Boolean!
+  createdAt: BigInt!
+  revokedAt: BigInt
+}
+
+type JoinRequest @entity(immutable: false) {
+  id: ID!
+  chama: Chama!
+  applicant: Bytes!
+  codeHash: Bytes!
+  createdAt: BigInt!
+  processed: Boolean!
+  approved: Boolean!
+  requestedAt: BigInt!
+  requestedBlock: BigInt!
+  processedAt: BigInt
+}

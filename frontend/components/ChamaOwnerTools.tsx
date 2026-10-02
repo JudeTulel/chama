@@ -5,13 +5,13 @@ import { keccak256, stringToHex, type Address } from 'viem';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import { isEthereumWallet } from '@dynamic-labs/ethereum';
 import { Check, Copy, LoaderCircle, Mail, MessageCircle, Pencil, ShieldCheck, Users, X } from 'lucide-react';
-import { addresses, directoryDeploymentBlock, publicClient, type ChamaDeployment } from '../src/config/contracts';
+import { addresses, publicClient, subgraphUrl, type ChamaDeployment } from '../src/config/contracts';
 import { chamaDirectoryAbi } from '../src/abi/ChamaDirectory';
 import { membershipRegistryAbi } from '../src/abi/MembershipRegistry';
 import { ensureWalletNetwork } from '../src/config/networkActions';
 import { buildInviteShareLinks } from './inviteShareLinks';
 import { normalizeChamaName } from '../src/config/chamaNameCore';
-import { collectPendingJoinRequests, getPendingRequestBlockRanges, type PendingJoinRequest } from '../src/config/pendingJoinRequestsCore';
+import { loadPendingJoinRequests, type PendingJoinRequest } from '../src/config/pendingJoinRequestsCore';
 
 export function ChamaOwnerTools({ chama, isMember, onMembershipUpdated, onNameUpdated }: { chama: ChamaDeployment; isMember: boolean; onMembershipUpdated: () => void; onNameUpdated: (deployment: ChamaDeployment) => void }) {
   const { primaryWallet } = useDynamicContext();
@@ -24,8 +24,6 @@ export function ChamaOwnerTools({ chama, isMember, onMembershipUpdated, onNameUp
   const [name, setName] = useState(chama.name);
   const [pendingRequests, setPendingRequests] = useState<PendingJoinRequest[]>([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
-  const requestApplicants = useRef(new Map<string, Address>());
-  const lastScannedBlock = useRef<bigint | null>(null);
   const requestRefreshInFlight = useRef(false);
   const isOwner = primaryWallet?.address?.toLowerCase() === chama.owner.toLowerCase();
 
@@ -35,35 +33,7 @@ export function ChamaOwnerTools({ chama, isMember, onMembershipUpdated, onNameUp
     setLoadingRequests(true);
     setError('');
     try {
-      const latestBlock = await publicClient.getBlockNumber();
-      const firstBlock = lastScannedBlock.current === null ? directoryDeploymentBlock : lastScannedBlock.current + BigInt(1);
-      const ranges = getPendingRequestBlockRanges(firstBlock, latestBlock);
-      for (const { fromBlock, toBlock } of ranges) {
-        const events = await publicClient.getContractEvents({
-          address: addresses.directory,
-          abi: chamaDirectoryAbi,
-          eventName: 'JoinRequested',
-          args: { chamaId: chama.chamaId },
-          fromBlock,
-          toBlock,
-        });
-        for (const event of events) {
-          const applicant = event.args.applicant;
-          if (applicant) requestApplicants.current.set(applicant.toLowerCase(), applicant);
-        }
-      }
-      lastScannedBlock.current = latestBlock;
-      const applicants = [...requestApplicants.current.values()];
-      const requests = await Promise.all(applicants.map(async applicant => {
-        const current = await publicClient.readContract({
-          address: addresses.directory,
-          abi: chamaDirectoryAbi,
-          functionName: 'joinRequests',
-          args: [chama.chamaId, applicant],
-        });
-        return { applicant, createdAt: current[0], processed: current[1] };
-      }));
-      setPendingRequests(collectPendingJoinRequests(requests));
+      setPendingRequests(await loadPendingJoinRequests(subgraphUrl, chama.chamaId));
     } catch (cause) {
       setError(cause instanceof Error ? `Could not load pending join requests: ${cause.message}` : 'Could not load pending join requests.');
     } finally {
@@ -73,8 +43,6 @@ export function ChamaOwnerTools({ chama, isMember, onMembershipUpdated, onNameUp
   }, [chama.chamaId, isOwner]);
 
   useEffect(() => {
-    requestApplicants.current.clear();
-    lastScannedBlock.current = null;
     setPendingRequests([]);
   }, [chama.chamaId]);
 
