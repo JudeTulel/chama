@@ -16,6 +16,7 @@ const MAX_LOAN_RECORDS = 200;
 const MAX_ACTIVITY_ITEMS = 100;
 const BLOCK_WINDOW = BigInt(5_000);
 const ZERO = BigInt(0);
+const dynamicEnvironmentReady = Boolean(process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID);
 
 function shortAddress(value: string) { return `${value.slice(0, 6)}…${value.slice(-4)}`; }
 function money(value?: bigint) {
@@ -26,6 +27,11 @@ function money(value?: bigint) {
 function when(timestamp?: bigint) { return timestamp ? new Date(Number(timestamp) * 1000).toLocaleString() : 'Timestamp unavailable'; }
 
 export function ProfileActivityClient() {
+  if (!dynamicEnvironmentReady) return <main className="page finance-page profile-page"><section className="section"><div className="section-head"><div><span className="eyebrow">ACCOUNT</span><h1 className="section-title">Account activity</h1></div><span className="pill">Preview mode</span></div><div className="card profile-empty"><span className="profile-icon"><Wallet size={20}/></span><div><strong>Connect a wallet to view activity</strong><p className="muted">Your deposits, withdrawals, loan requests, repayments and disbursements will appear here once a Dynamic environment is configured.</p></div></div></section></main>;
+  return <ProfileActivityWallet />;
+}
+
+function ProfileActivityWallet() {
   const { primaryWallet } = useDynamicContext();
   const [chama, setChama] = useState<ChamaDeployment | null>(null);
   const [activity, setActivity] = useState<(ProfileActivityItem & { timestamp?: bigint })[]>([]);
