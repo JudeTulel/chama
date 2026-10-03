@@ -29,6 +29,7 @@ type Snapshot = {
 };
 const MAX_LOANS_TO_READ = 25;
 const ZERO = BigInt(0);
+const dynamicEnvironmentReady = Boolean(process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID);
 const fmt = (value: bigint, digits = 2) => {
   const [whole = '0', fraction = ''] = formatUnits(value, 6).split('.');
   return `${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}.${fraction.padEnd(digits, '0').slice(0, digits)}`;
@@ -45,6 +46,16 @@ async function assertSelectedChama(chama: ChamaDeployment) {
 }
 
 export function LoanHealthClient({ mode }: { mode: 'loans' | 'health' }) {
+  if (!dynamicEnvironmentReady) return <WalletSetupState mode={mode} />;
+  return <LoanHealthWallet mode={mode} />;
+}
+
+function WalletSetupState({ mode }: { mode: 'loans' | 'health' }) {
+  const title = mode === 'loans' ? 'Loan management' : 'Chama health';
+  return <main className="page finance-page loan-health-page"><section className="section"><div className="section-head"><div><span className="eyebrow">SELECTED CHAMA</span><h1 className="section-title">{title}</h1></div><span className="pill">Preview mode</span></div><div className="card"><div className="health-summary-icon"><WalletCards size={21}/></div><h2 className="section-title">Connect a wallet to continue</h2><p className="muted">This screen reads live Arc contract state and wallet permissions. Add <code>NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID</code> to <code>frontend/.env.local</code> to enable the interactive {mode} flow.</p></div></section></main>;
+}
+
+function LoanHealthWallet({ mode }: { mode: 'loans' | 'health' }) {
   const { primaryWallet } = useDynamicContext();
   const [chama, setChama] = useState<ChamaDeployment | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
