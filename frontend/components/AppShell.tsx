@@ -6,7 +6,7 @@ import { Bell, Home, Landmark, PiggyBank, ShieldCheck, UserRound } from 'lucide-
 import { WalletButton } from './DynamicProvider';
 import { readSelectedChama, selectedChamaEventName } from '../src/config/selectedChama';
 
-const nav = [['/', Home, 'Home'], ['/deposit', PiggyBank, 'Deposit'], ['/loans', Landmark, 'Loans'], ['/health', ShieldCheck, 'Health'], ['/profile', UserRound, 'Profile']] as const;
+const nav = [['/', Home, 'Home'], ['/deposit', PiggyBank, 'Deposit'], ['/loans', Landmark, 'Loans'], ['/health', ShieldCheck, 'Health'], ['/manage', ShieldCheck, 'Manage'], ['/profile', UserRound, 'Profile']] as const;
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [chamaName, setChamaName] = useState('Your chama');
