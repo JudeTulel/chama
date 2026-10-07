@@ -16,6 +16,11 @@ test('does not mark history partial when the full available deployment range fit
   assert.deepEqual(scan.ranges, [{ fromBlock: 1000n, toBlock: 4000n }]);
 });
 
+test('keeps activity log ranges below the Arc RPC limit', () => {
+  const scan = getActivityScan(1n, 5000n, 20000n, 1000n);
+  assert.ok(scan.ranges.every(range => range.toBlock - range.fromBlock + 1n <= 1000n));
+});
+
 test('sorts events newest first and formats transaction details and explorer links', () => {
   const activity = buildActivityFeed([
     { type: 'deposit', blockNumber: 12n, logIndex: 0, transactionHash: '0xabc', amount: 2_500_000n },
