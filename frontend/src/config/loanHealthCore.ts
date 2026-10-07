@@ -6,7 +6,8 @@ export function calculateBorrowingCapacity(memberAssetValue: bigint, multiplierB
 }
 
 export function getRepaymentAmount(outstanding: bigint, currentInterest: bigint): bigint {
-  return outstanding + currentInterest + BigInt(1);
+  // Buffer of 0.1 USDC covers interest accrual between read and tx execution
+  return outstanding + currentInterest + BigInt(100_000);
 }
 
 export function getAdditionalGuaranteeShares(principal: bigint, alreadyGuaranteedShares: bigint, borrowerShares: bigint): bigint {

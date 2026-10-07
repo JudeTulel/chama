@@ -203,7 +203,7 @@ function LoanHealthWallet({ mode }: { mode: 'loans' | 'health' }) {
         throw new Error('This loan is no longer active for the connected borrower. Refresh and check its current status.');
       }
       const owed = getRepaymentAmount(currentLoan[2], currentInterest);
-      if (owed > walletBalance) throw new Error(`Current repayment amount is $${fmt(owed)} including a 1-unit interest-rounding buffer; wallet balance is $${fmt(walletBalance)}.`);
+      if (owed > walletBalance) throw new Error(`Current repayment amount is $${fmt(owed)} including a 0.1-USDC interest-timing buffer; wallet balance is $${fmt(walletBalance)}.`);
       setMessage(`Repaying current balance $${fmt(owed)} including accrued interest…`);
       await send('repay', [loan.id, owed], 'Repayment confirmed; locked collateral was released.', owed);
     } catch (cause) {
@@ -261,7 +261,7 @@ function LoanHealthWallet({ mode }: { mode: 'loans' | 'health' }) {
           const myGuarantee = loan.guaranteeShares;
           return <article className="card loan-card" key={loan.id.toString()}><div className="loan-card-head"><div><span className="pill">Loan #{loan.id.toString()} · Active</span><h3>{fmt(loan.outstanding)} USDC outstanding</h3><p className="muted">Borrower {shortAddress(loan.borrower)} · maturity {new Date(Number(loan.maturity) * 1000).toLocaleDateString()}</p></div><span className="loan-status">{(Number(loan.rateBps) / 100).toFixed(2)}% APR</span></div>
             <div className="deposit-breakdown"><div><span>Accrued interest (live contract view)</span><strong>${fmt(loan.accruedInterest)}</strong></div><div><span>Total repayment amount</span><strong>${fmt(loan.outstanding + loan.accruedInterest)}</strong></div>{myGuarantee > ZERO && <div><span>Your locked guarantee shares</span><strong>{fmt(myGuarantee)} cUSDC</strong></div>}</div>
-            {borrower && <button className="primary" disabled={busy || snapshot.paused || loan.outstanding + loan.accruedInterest > snapshot.userBalance} onClick={() => void repay(loan)}>Approve USDC & repay in full</button>}
+            {borrower && <button className="primary" disabled={busy || snapshot.paused || getRepaymentAmount(loan.outstanding, loan.accruedInterest) > snapshot.userBalance} onClick={() => void repay(loan)}>Approve USDC & repay in full</button>}
             {myGuarantee > ZERO && loan.guaranteeInterest > ZERO && <button className="secondary" disabled={busy} onClick={() => void send('claimGuaranteeInterest', [loan.id], 'Guarantor interest claimed.')}>Claim ${fmt(loan.guaranteeInterest)} guarantee interest</button>}
             {BigInt(Math.floor(Date.now() / 1000)) > loan.maturity + BigInt(86_400) && <button className="secondary" disabled={busy} onClick={() => void send('liquidate', [loan.id], 'Loan liquidation recorded on-chain.')}>Liquidate overdue loan</button>}
             {!borrower && myGuarantee === ZERO && <p className="footnote">Collateral is locked while the loan is active. Liquidation becomes available after maturity plus the contract’s one-day grace period.</p>}
