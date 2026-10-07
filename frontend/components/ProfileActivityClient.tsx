@@ -11,10 +11,14 @@ import { addresses, directoryDeploymentBlock, publicClient, type ChamaDeployment
 import { readSelectedChama, selectedChamaEventName } from '../src/config/selectedChama';
 import { buildActivityFeed, getActivityScan, type ProfileActivityEvent, type ProfileActivityItem } from '../src/config/profileActivityCore';
 
-const MAX_SCAN_BLOCKS = BigInt(20_000);
-const MAX_LOAN_RECORDS = 200;
-const MAX_ACTIVITY_ITEMS = 100;
-const BLOCK_WINDOW = BigInt(5_000);
+// Scan up to 1M blocks (=~11 days on Arc testnet 1s/blocks).
+// Per-window cap stays well under the 5k-block RPC limit.
+const MAX_SCAN_BLOCKS = BigInt(1_000_000);
+const MAX_LOAN_RECORDS = 500;
+const MAX_ACTIVITY_ITEMS = 200;
+// Arc RPC rejects eth_getLogs requests at the 5,000-block boundary.
+// Leave a safety margin below the provider limit.
+const BLOCK_WINDOW = BigInt(4_000);
 const ZERO = BigInt(0);
 const dynamicEnvironmentReady = Boolean(process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID);
 
@@ -90,6 +94,8 @@ function ProfileActivityWallet() {
       const relatedLoanIds = new Set(rawEvents.filter(event => event.type === 'loan-request' || event.type === 'guarantee' || event.type === 'interest-claimed').map(event => event.loanId.toString()));
       const loanPrincipals = new Map<string, bigint>();
       const count = Number(nextLoanId > BigInt(MAX_LOAN_RECORDS) ? BigInt(MAX_LOAN_RECORDS) : nextLoanId);
+      // Scan every loan ID from the latest range to find loans the user is involved in,
+      // not just the ones directly emitted in their events.
       const firstId = nextLoanId - BigInt(count);
       const loanIds = Array.from({ length: count }, (_, index) => firstId + BigInt(index));
       for (let offset = 0; offset < loanIds.length; offset += 10) {
