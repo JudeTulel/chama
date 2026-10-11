@@ -7,13 +7,21 @@ import {MembershipRegistry} from "../src/MembershipRegistry.sol";
 import {ChamaVault} from "../src/ChamaVault.sol";
 import {ChamaLending} from "../src/ChamaLending.sol";
 import {InsuranceFund} from "../src/InsuranceFund.sol";
-import {ChamaFactory} from "../src/ChamaFactory.sol";
+import {ChamaFactory, ChamaPoolDeployer, ChamaLendingDeployer, ChamaWirer} from "../src/ChamaFactory.sol";
 import {ChamaDirectory} from "../src/ChamaDirectory.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract ChamaProtocolTest is Test {
     MockUSDC usdc; MembershipRegistry registry; InsuranceFund insurance; ChamaVault vault; ChamaLending lending;
     address owner = address(1); address borrower = address(2); address guarantor = address(3); address treasury = address(4);
+
+    function _deployFactory() internal returns (ChamaFactory factory) {
+        ChamaPoolDeployer poolDeployer = new ChamaPoolDeployer();
+        ChamaLendingDeployer lendingDeployer = new ChamaLendingDeployer();
+        ChamaWirer wirer = new ChamaWirer();
+        factory = new ChamaFactory(address(poolDeployer), address(lendingDeployer), address(wirer));
+    }
+
     function setUp() public {
         usdc = new MockUSDC(); registry = new MembershipRegistry(owner); insurance = new InsuranceFund(address(usdc), owner); vault = new ChamaVault(address(usdc), address(registry), address(insurance), owner); lending = new ChamaLending(address(vault), address(registry), treasury, owner);
         vm.startPrank(owner); insurance.setVault(address(vault)); vault.setLendingModule(address(lending)); insurance.setLendingModule(address(lending)); vm.stopPrank();
@@ -21,8 +29,9 @@ contract ChamaProtocolTest is Test {
         usdc.mint(borrower, 1_000e6); usdc.mint(guarantor, 1_000e6);
     }
     function _members() internal view returns (address[] memory a) { a = new address[](2); a[0] = borrower; a[1] = guarantor; }
+
     function testFactoryCreatorOwnsChama() public {
-        ChamaFactory factory = new ChamaFactory();
+        ChamaFactory factory = _deployFactory();
         vm.prank(owner);
         uint256 id = factory.createChama(address(usdc), treasury, "Test Chama");
         (address createdOwner, address token, address createdTreasury, address registryAddress, address insuranceAddress, address vaultAddress, address lendingAddress) = factory.chamas(id);
@@ -38,7 +47,7 @@ contract ChamaProtocolTest is Test {
     }
 
     function testJoinCodeRequestAndOwnerApproval() public {
-        ChamaFactory factory = new ChamaFactory();
+        ChamaFactory factory = _deployFactory();
         bytes32 codeHash = keccak256(abi.encodePacked("NAIROBI-7K4Q2M"));
         vm.prank(owner);
         uint256 id = factory.createChama(address(usdc), treasury, "Test Chama");
@@ -52,7 +61,7 @@ contract ChamaProtocolTest is Test {
     }
 
     function testOwnerCanRenameChama() public {
-        ChamaFactory factory = new ChamaFactory();
+        ChamaFactory factory = _deployFactory();
         vm.prank(owner);
         factory.createChama(address(usdc), treasury, "Nairobi Women Savers");
         ChamaDirectory directory = ChamaDirectory(factory.directory());
@@ -65,7 +74,7 @@ contract ChamaProtocolTest is Test {
     }
 
     function testNamedCreationStoresTheProvidedName() public {
-        ChamaFactory factory = new ChamaFactory();
+        ChamaFactory factory = _deployFactory();
         vm.prank(owner);
         factory.createChama(address(usdc), treasury, "Nairobi Women Savers");
         ChamaDirectory directory = ChamaDirectory(factory.directory());
@@ -83,9 +92,14 @@ contract ChamaProtocolTest is Test {
     function testDepositSharesAndRepayLoan() public {
         vm.startPrank(borrower); usdc.approve(address(vault), 101e6); vault.deposit(101e6); vm.stopPrank();
         vm.startPrank(guarantor); usdc.approve(address(vault), 101e6); vault.deposit(101e6); vault.approve(address(lending), 99e6); vm.stopPrank();
-        vm.prank(borrower); uint256 id = lending.requestLoan(100e6, 1_000, block.timestamp + 30 days);
+        vm.prank(borrower); uint256 id = lending.requestLoan(100e6, 1_000, block.timestamp + 30 days, "QmReasonHashForTesting");
         vm.prank(guarantor); lending.guarantee(id, 99e6);
-        vm.prank(owner); lending.approveLoan(id, true);
+        // Vote to approve the loan (members with shares decide; borrower and guarantor both hold shares)
+        vm.prank(borrower); lending.voteOnLoan(id, true);
+        vm.prank(guarantor); lending.voteOnLoan(id, true);
+        // Wait for voting period to end and finalize the approval
+        vm.warp(block.timestamp + 16 hours + 1);
+        lending.checkVotingComplete(id);
         vm.prank(borrower); lending.activate(id);
         assertEq(usdc.balanceOf(borrower), 999e6);
         vm.warp(block.timestamp + 10 days);

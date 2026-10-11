@@ -34,10 +34,34 @@ contract InsuranceFund is Ownable, ReentrancyGuard {
         emit VaultSet(vault_);
     }
 
+    uint256 public constant MODULE_TIMELOCK = 2 days;
+    address public pendingLendingModule;
+    uint256 public pendingModuleEta;
+    error NotReady(); error NoPendingModule();
+    event LendingModuleProposed(address indexed module, uint256 eta);
+
+    /// @notice First call wires the module immediately; later changes are timelocked (see ChamaVault).
     function setLendingModule(address module) external onlyOwner {
         require(module != address(0), "zero module");
-        lendingModule = module;
-        emit LendingModuleSet(module);
+        if (lendingModule == address(0)) {
+            lendingModule = module;
+            emit LendingModuleSet(module);
+        } else {
+            pendingLendingModule = module;
+            pendingModuleEta = block.timestamp + MODULE_TIMELOCK;
+            emit LendingModuleProposed(module, pendingModuleEta);
+        }
+    }
+    function executeLendingModule() external onlyOwner {
+        if (pendingModuleEta == 0) revert NoPendingModule();
+        if (block.timestamp < pendingModuleEta) revert NotReady();
+        lendingModule = pendingLendingModule;
+        delete pendingLendingModule; delete pendingModuleEta;
+        emit LendingModuleSet(lendingModule);
+    }
+    function cancelLendingModule() external onlyOwner {
+        if (pendingModuleEta == 0) revert NoPendingModule();
+        delete pendingLendingModule; delete pendingModuleEta;
     }
 
     function recordDepositFee(uint256 amount) external {

@@ -21,10 +21,22 @@ contract ChamaVault is ERC20, Ownable, ReentrancyGuard, Pausable {
     uint256 public constant DEPOSIT_INSURANCE_FEE_BPS = 100;
     uint256 public outstandingPrincipal;
 
+    /// @notice Delay before a changed lending module takes effect. Depositors can exit during this window.
+    uint256 public constant MODULE_TIMELOCK = 2 days;
+    /// @notice A pause expires on its own after this long, so the owner cannot freeze withdrawals indefinitely.
+    uint256 public constant MAX_PAUSE = 7 days;
+    address public pendingLendingModule;
+    uint256 public pendingModuleEta;
+    uint256 public pausedAt;
+
     error NotMember(); error Unauthorized(); error InvalidAmount(); error InsufficientLiquidity();
+    error NotReady(); error NoPendingModule();
     event Deposited(address indexed member, uint256 assets, uint256 shares);
     event Withdrawn(address indexed member, uint256 assets, uint256 shares);
     event LendingModuleSet(address indexed module);
+    event LendingModuleProposed(address indexed module, uint256 eta);
+    event LendingModuleCancelled(address indexed module);
+    event RefundCredited(address indexed to, uint256 assets, uint256 shares);
     event PrincipalUpdated(uint256 outstandingPrincipal);
 
     modifier memberOnly() { if (!registry.isMember(msg.sender)) revert NotMember(); _; }
@@ -45,13 +57,55 @@ contract ChamaVault is ERC20, Ownable, ReentrancyGuard, Pausable {
     function convertToAssets(uint256 shares) public view returns (uint256) {
         uint256 supply = totalSupply(); return supply == 0 ? 0 : shares * totalAssets() / supply;
     }
+    /// @notice First call wires the module immediately (factory setup). Any later change is timelocked:
+    /// call proposeLendingModule, wait MODULE_TIMELOCK, then executeLendingModule.
     function setLendingModule(address module) external onlyOwner {
         require(module != address(0), "zero module");
-        lendingModule = module;
-        emit LendingModuleSet(module);
+        if (lendingModule == address(0)) {
+            lendingModule = module;
+            emit LendingModuleSet(module);
+        } else {
+            _propose(module);
+        }
     }
-    function pause() external onlyOwner { _pause(); }
+    function proposeLendingModule(address module) external onlyOwner {
+        require(module != address(0) && lendingModule != address(0), "zero module");
+        _propose(module);
+    }
+    function _propose(address module) internal {
+        pendingLendingModule = module;
+        pendingModuleEta = block.timestamp + MODULE_TIMELOCK;
+        emit LendingModuleProposed(module, pendingModuleEta);
+    }
+    function executeLendingModule() external onlyOwner {
+        if (pendingModuleEta == 0) revert NoPendingModule();
+        if (block.timestamp < pendingModuleEta) revert NotReady();
+        lendingModule = pendingLendingModule;
+        delete pendingLendingModule; delete pendingModuleEta;
+        emit LendingModuleSet(lendingModule);
+    }
+    function cancelLendingModule() external onlyOwner {
+        if (pendingModuleEta == 0) revert NoPendingModule();
+        emit LendingModuleCancelled(pendingLendingModule);
+        delete pendingLendingModule; delete pendingModuleEta;
+    }
+
+    function pause() external onlyOwner { pausedAt = block.timestamp; _pause(); }
     function unpause() external onlyOwner { _unpause(); }
+    /// @dev Pause lapses after MAX_PAUSE even if the owner never unpauses.
+    function paused() public view override returns (bool) {
+        return super.paused() && block.timestamp < pausedAt + MAX_PAUSE;
+    }
+
+    /// @notice Credits an overpayment to a borrower as cUSDC. The USDC is already in the vault balance,
+    /// so shares are priced against the assets that existed before the refund (no dilution of other members).
+    function creditRefund(address to, uint256 assets) external onlyLending {
+        uint256 supply = totalSupply();
+        uint256 baseAssets = totalAssets() - assets;
+        uint256 shares = supply == 0 || baseAssets == 0 ? assets : assets * supply / baseAssets;
+        _mint(to, shares);
+        emit RefundCredited(to, assets, shares);
+    }
 
     function deposit(uint256 assets) external nonReentrant whenNotPaused memberOnly returns (uint256 shares) {
         if (assets == 0) revert InvalidAmount();
