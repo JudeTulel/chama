@@ -14,6 +14,9 @@ export type ProfileActivityEvent =
 export type ProfileActivityItem = {
   type: ProfileActivityEvent['type']; blockNumber: bigint; logIndex: number;
   transactionHash: string; title: string; detail: string; amount?: bigint; explorerUrl: string;
+  // Type-specific fields carried over from the source event by buildActivityFeed.
+  loanId?: bigint; principal?: bigint; interest?: bigint; shares?: bigint;
+  insuredAmount?: bigint; collateralLoss?: bigint;
 };
 
 function formatTokenAmount(value: bigint): string {

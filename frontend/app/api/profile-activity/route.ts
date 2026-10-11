@@ -144,13 +144,13 @@ export async function GET(request: Request) {
         detail: e.detail,
         explorerUrl: e.explorerUrl,
         amount: e.amount?.toString(),
-        // type-specific fields
-        ...('loanId' in e ? { loanId: e.loanId.toString() } : {}),
-        ...('principal' in e ? { principal: (e as any).principal?.toString() } : {}),
-        ...('interest' in e ? { interest: (e as any).interest?.toString() } : {}),
-        ...('shares' in e ? { shares: (e as any).shares?.toString() } : {}),
-        ...('insuredAmount' in e ? { insuredAmount: (e as any).insuredAmount?.toString() } : {}),
-        ...('collateralLoss' in e ? { collateralLoss: (e as any).collateralLoss?.toString() } : {}),
+        // type-specific fields (optional; present only on the relevant event types)
+        loanId: e.loanId?.toString(),
+        principal: e.principal?.toString(),
+        interest: e.interest?.toString(),
+        shares: e.shares?.toString(),
+        insuredAmount: e.insuredAmount?.toString(),
+        collateralLoss: e.collateralLoss?.toString(),
         timestamp: timestampByBlock.get(e.blockNumber.toString())?.toString(),
       }));
 
