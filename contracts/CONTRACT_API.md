@@ -118,7 +118,7 @@ Foundry ABI artifacts are produced by `forge build` under `out/<Source>.sol/<Con
 
 | Operation | Type | Caller | Signature |
 |---|---|---|---|
-| Request loan | Write | Member borrower | `requestLoan(uint256 amount,uint256 rateBps,uint256 maturity)` |
+| Request loan | Write | Member borrower | `requestLoan(uint256 amount,uint256 rateBps,uint256 term)` |
 | Approve/reject loan | Write | Lending owner | `approveLoan(uint256 id,bool approved)` |
 | Lock guarantee shares | Write | Member guarantor (not borrower) | `guarantee(uint256 id,uint256 shares)` |
 | Activate loan | Write | Borrower, after approval | `activate(uint256 id)` |
@@ -312,17 +312,19 @@ The current source writes `Pending`, `Active`, `Repaid`, and `Liquidated`; it do
 ### A. Request
 
 ```text
-requestLoan(uint256 amount,uint256 rateBps,uint256 maturity) returns (uint256 id)
+requestLoan(uint256 amount,uint256 rateBps,uint256 term) returns (uint256 id)
 ```
 
-Caller must be an approved member and lending must not be paused. Amount must be positive, maturity must be in the future, and rate must not exceed 5,000 BPS (50%). The request checks amount against the configured multiplier of the caller's current cUSDC value. It emits `LoanRequested(id, borrower, amount)` and starts unapproved.
+Caller must be an approved member and lending must not be paused. Amount must be positive, term must be positive, and rate must not exceed 5,000 BPS (50%). The request checks amount against the configured multiplier of the caller's current cUSDC value. It emits `LoanRequested(id, borrower, amount)` and starts unapproved.
+
+`term` is a duration in seconds, not an absolute timestamp. Maturity is set when the loan activates: `maturity = activatedAt + term`. Interest likewise accrues only from activation, so approval and collateral-gathering delays cost the borrower nothing and do not shorten the interest-bearing window. `maturity` is 0 while a loan is pending.
 
 ```bash
 cast send "$LENDING" 'requestLoan(uint256,uint256,uint256)' \
-  50000000 1000 1790000000 --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+  50000000 1000 2592000 --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
 ```
 
-Use a future Unix timestamp for maturity. This example is illustrative; confirm the current timestamp and intended term before broadcasting.
+Use a term in seconds. The example above is 30 days (`2592000`); confirm the intended term before broadcasting.
 
 ### B. Owner approval
 
@@ -351,7 +353,7 @@ cast send "$LENDING" 'guarantee(uint256,uint256)' 0 25000000 \
 activate(uint256 id)
 ```
 
-Only the approved borrower may activate. It changes the loan to active, adds principal to vault accounting, locks borrower shares if any, and asks the vault to transfer the principal to the borrower. The vault must have enough liquid USDC.
+Only the approved borrower may activate. It changes the loan to active, records the activation timestamp, and sets `maturity = activatedAt + term` — interest and the grace-period clock both start here. It then adds principal to vault accounting, locks borrower shares if any, and asks the vault to transfer the principal to the borrower. The vault must have enough liquid USDC.
 
 **Important implementation caveat:** the current activation check adds raw guarantor share units and borrower cUSDC balance, then compares that sum with the USDC principal. It does not convert these share amounts to assets for the check. Although both token types use 6 decimals, their exchange values can diverge. Review this accounting before relying on collateral coverage.
 
@@ -361,7 +363,7 @@ Only the approved borrower may activate. It changes the loan to active, adds pri
 repay(uint256 id,uint256 amount)
 ```
 
-Only the active loan's borrower may repay. The borrower must approve `ChamaLending` to spend USDC. `amount` must be at least outstanding principal plus accrued simple interest; partial repayment is not supported. Interest accrues from request creation to the earlier of current time or maturity, at `rateBps` per year.
+Only the active loan's borrower may repay. The borrower must approve `ChamaLending` to spend USDC. `amount` must be at least outstanding principal plus accrued simple interest; partial repayment is not supported. Interest accrues from loan activation to the earlier of current time or maturity, at `rateBps` per year. No interest accrues while a loan is pending.
 
 ```bash
 cast send "$USDC" 'approve(address,uint256)' "$LENDING" 60000000 \

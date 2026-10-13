@@ -300,6 +300,16 @@ export const chamaLendingAbi = [
         "internalType": "uint256"
       },
       {
+        "name": "activatedAt",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "term",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
         "name": "maturity",
         "type": "uint256",
         "internalType": "uint256"
@@ -445,7 +455,7 @@ export const chamaLendingAbi = [
         "internalType": "uint256"
       },
       {
-        "name": "maturity",
+        "name": "term",
         "type": "uint256",
         "internalType": "uint256"
       }

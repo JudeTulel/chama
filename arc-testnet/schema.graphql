@@ -59,5 +59,6 @@ type Loan @entity(immutable: false) {
   borrowerLockedShares: BigInt!
   status: Int!
   createdAt: BigInt!
+  activatedAt: BigInt
   updatedAt: BigInt!
 }

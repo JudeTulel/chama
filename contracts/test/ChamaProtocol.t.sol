@@ -80,10 +80,35 @@ contract ChamaProtocolTest is Test {
         assertEq(vault.balanceOf(borrower), 99e6);
     }
 
+    function testInterestAndMaturitySyncWithActivation() public {
+        vm.startPrank(borrower); usdc.approve(address(vault), 101e6); vault.deposit(101e6); vm.stopPrank();
+        vm.startPrank(guarantor); usdc.approve(address(vault), 101e6); vault.deposit(101e6); vault.approve(address(lending), 99e6); vm.stopPrank();
+        uint256 requestedAt = vm.getBlockTimestamp();
+        vm.prank(borrower); uint256 id = lending.requestLoan(100e6, 1_000, 30 days); // 30-day term
+        vm.prank(guarantor); lending.guarantee(id, 99e6);
+        vm.prank(owner); lending.approveLoan(id, true);
+        vm.warp(requestedAt + 5 days); // pending: nothing accrues, maturity not set
+        assertEq(lending.accruedInterest(id), 0);
+        (, , , , , uint256 activatedAt, uint256 term, uint256 maturity, , , , ) = lending.loans(id);
+        assertEq(maturity, 0);
+        vm.prank(borrower); lending.activate(id);
+        assertEq(lending.accruedInterest(id), 0);
+        (, , , , , activatedAt, term, maturity, , , , ) = lending.loans(id);
+        assertEq(term, 30 days);
+        assertEq(activatedAt, requestedAt + 5 days);
+        assertEq(maturity, requestedAt + 5 days + 30 days); // anchored at activation, not request
+        vm.warp(requestedAt + 5 days + 10 days);
+        uint256 expected = (100e6 * 1_000 * uint256(10 days)) / 10_000 / uint256(365 days);
+        assertEq(lending.accruedInterest(id), expected);
+        vm.warp(requestedAt + 5 days + 40 days); // past maturity: interest caps at maturity
+        uint256 capped = (100e6 * 1_000 * uint256(30 days)) / 10_000 / uint256(365 days);
+        assertEq(lending.accruedInterest(id), capped);
+    }
+
     function testDepositSharesAndRepayLoan() public {
         vm.startPrank(borrower); usdc.approve(address(vault), 101e6); vault.deposit(101e6); vm.stopPrank();
         vm.startPrank(guarantor); usdc.approve(address(vault), 101e6); vault.deposit(101e6); vault.approve(address(lending), 99e6); vm.stopPrank();
-        vm.prank(borrower); uint256 id = lending.requestLoan(100e6, 1_000, block.timestamp + 30 days);
+        vm.prank(borrower); uint256 id = lending.requestLoan(100e6, 1_000, 30 days);
         vm.prank(guarantor); lending.guarantee(id, 99e6);
         vm.prank(owner); lending.approveLoan(id, true);
         vm.prank(borrower); lending.activate(id);

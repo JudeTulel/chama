@@ -56,7 +56,7 @@ Loan and guarantee lifecycle:
 - Limits requested principal to the configured share multiplier.
 - Accepts guarantor share locks.
 - Activates loans after required collateral is locked.
-- Accrues simple interest using elapsed time.
+- Accrues simple interest using elapsed time since activation.
 - Accepts full repayment.
 - Allocates the guarantor share of interest pro rata.
 - Sends the configured treasury share to the treasury and the fixed insurance contribution to `InsuranceFund`.
@@ -252,12 +252,13 @@ Deposit:
 - 1% of every deposit is transferred to `InsuranceFund`; shares are minted against the remaining 99%.
 - Depositors therefore pay the insurance contribution at entry rather than receiving shares for the fee amount.
 
-1. A member requests a USDC loan.
+1. A member requests a USDC loan with a term in seconds.
 2. Other members may lock `cUSDC` shares as guarantees while the request is pending.
 3. The chama owner approves or rejects the request with `ChamaLending.approveLoan(id, true|false)`.
 4. Other members can continue adding guarantees until activation.
 5. The borrower activates the approved loan after sufficient collateral is locked.
-6. The vault transfers USDC and increases outstanding principal.
+6. Activation sets `maturity = activatedAt + term` and starts interest accrual.
+7. The vault transfers USDC and increases outstanding principal.
 
 Repayment:
 

@@ -16,7 +16,7 @@ contract ChamaLending is Ownable, ReentrancyGuard, Pausable {
     uint256 public constant BPS = 10_000;
     uint256 public constant YEAR = 365 days;
     enum Status { Pending, Active, Repaid, Defaulted, Liquidated }
-    struct Loan { address borrower; uint256 principal; uint256 outstanding; uint256 rateBps; uint256 createdAt; uint256 maturity; uint256 lockedShares; uint256 borrowerLockedShares; bool approved; Status status; }
+    struct Loan { address borrower; uint256 principal; uint256 outstanding; uint256 rateBps; uint256 createdAt; uint256 activatedAt; uint256 term; uint256 maturity; uint256 lockedShares; uint256 borrowerLockedShares; bool approved; Status status; }
     struct Guarantee { uint256 shares; uint256 interestClaim; }
     ChamaVault public immutable vault; IERC20 public immutable usdc; MembershipRegistry public immutable registry;
     uint256 public maxLoanMultiplierBps = 30_000; // 3x member shares
@@ -60,11 +60,11 @@ contract ChamaLending is Ownable, ReentrancyGuard, Pausable {
         emit LoanApprovalUpdated(id, approved);
     }
 
-    function requestLoan(uint256 amount, uint256 rateBps, uint256 maturity) external memberOnly whenNotPaused returns (uint256 id) {
-        if (amount == 0 || maturity <= block.timestamp || rateBps > 5_000) revert Invalid();
+    function requestLoan(uint256 amount, uint256 rateBps, uint256 term) external memberOnly whenNotPaused returns (uint256 id) {
+        if (amount == 0 || term == 0 || rateBps > 5_000) revert Invalid();
         uint256 capacity = vault.convertToAssets(vault.balanceOf(msg.sender)) * maxLoanMultiplierBps / BPS;
         if (amount > capacity) revert InsufficientCollateral();
-        id = nextLoanId++; loans[id] = Loan(msg.sender, amount, amount, rateBps, block.timestamp, maturity, 0, 0, false, Status.Pending); emit LoanRequested(id, msg.sender, amount);
+        id = nextLoanId++; loans[id] = Loan(msg.sender, amount, amount, rateBps, block.timestamp, 0, term, 0, 0, 0, false, Status.Pending); emit LoanRequested(id, msg.sender, amount);
     }
     function guarantee(uint256 id, uint256 shares) external nonReentrant memberOnly whenNotPaused {
         Loan storage loan = loans[id]; if (loan.status != Status.Pending || shares == 0 || msg.sender == loan.borrower) revert Invalid();
@@ -79,11 +79,11 @@ contract ChamaLending is Ownable, ReentrancyGuard, Pausable {
         if (borrowerCollateral > loan.principal) borrowerCollateral = loan.principal;
         if (loan.lockedShares + borrowerCollateral < loan.principal) revert InsufficientCollateral();
         if (borrowerCollateral > 0) { loan.borrowerLockedShares = borrowerCollateral; }
-        loan.status = Status.Active; vault.increasePrincipal(loan.principal); emit LoanActivated(id);
+        loan.status = Status.Active; loan.activatedAt = block.timestamp; loan.maturity = block.timestamp + loan.term; vault.increasePrincipal(loan.principal); emit LoanActivated(id);
         if (borrowerCollateral > 0) vault.lockShares(loan.borrower, borrowerCollateral);
         vault.disburseLoan(loan.borrower, loan.principal);
     }
-    function accruedInterest(uint256 id) public view returns (uint256) { Loan memory l = loans[id]; uint256 elapsed = block.timestamp > l.maturity ? l.maturity - l.createdAt : block.timestamp - l.createdAt; return l.outstanding * l.rateBps * elapsed / BPS / YEAR; }
+    function accruedInterest(uint256 id) public view returns (uint256) { Loan memory l = loans[id]; if (l.status != Status.Active || l.activatedAt == 0) return 0; uint256 elapsed = block.timestamp > l.maturity ? l.maturity - l.activatedAt : block.timestamp - l.activatedAt; return l.outstanding * l.rateBps * elapsed / BPS / YEAR; }
     function repay(uint256 id, uint256 amount) external nonReentrant whenNotPaused {
         Loan storage loan = loans[id]; if (loan.status != Status.Active || msg.sender != loan.borrower || amount == 0) revert NotActive();
         uint256 interest = accruedInterest(id); uint256 owed = loan.outstanding + interest; if (amount < owed) revert Invalid();

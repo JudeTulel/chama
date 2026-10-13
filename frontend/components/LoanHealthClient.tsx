@@ -20,6 +20,10 @@ type LoanRecord = {
   maturity: bigint; lockedShares: bigint; borrowerLockedShares: bigint; approved: boolean;
   status: number; accruedInterest: bigint; guaranteeShares: bigint; guaranteeInterest: bigint; borrowerShares: bigint;
 };
+function formatMaturity(maturity: bigint): string {
+  if (maturity <= ZERO) return 'Set at activation';
+  return new Date(Number(maturity) * 1000).toLocaleDateString();
+}
 type Snapshot = {
   loans: LoanRecord[]; nextId: bigint; totalAssets: bigint; liquidAssets: bigint;
   insuranceBalance: bigint; outstandingPrincipal: bigint; userShares: bigint;
@@ -111,10 +115,10 @@ function LoanHealthWallet({ mode }: { mode: 'loans' | 'health' }) {
           const row = await publicClient.readContract({ address: chama.lending, abi: chamaLendingAbi, functionName: 'loans', args: [id] });
           const [guarantee, accruedInterest, borrowerShares] = await Promise.all([
             mode === 'loans' && primaryWallet?.address ? publicClient.readContract({ address: chama.lending, abi: chamaLendingAbi, functionName: 'guarantees', args: [id, account] }) : Promise.resolve([ZERO, ZERO] as const),
-            mode === 'loans' && Number(row[9]) === 1 ? publicClient.readContract({ address: chama.lending, abi: chamaLendingAbi, functionName: 'accruedInterest', args: [id] }) : Promise.resolve(ZERO),
-            mode === 'loans' && Number(row[9]) === 0 ? publicClient.readContract({ address: chama.vault, abi: chamaVaultAbi, functionName: 'balanceOf', args: [row[0]] }) : Promise.resolve(ZERO),
+            mode === 'loans' && Number(row[11]) === 1 ? publicClient.readContract({ address: chama.lending, abi: chamaLendingAbi, functionName: 'accruedInterest', args: [id] }) : Promise.resolve(ZERO),
+            mode === 'loans' && Number(row[11]) === 0 ? publicClient.readContract({ address: chama.vault, abi: chamaVaultAbi, functionName: 'balanceOf', args: [row[0]] }) : Promise.resolve(ZERO),
           ]);
-          return { id, borrower: row[0], principal: row[1], outstanding: row[2], rateBps: row[3], maturity: row[5], lockedShares: row[6], borrowerLockedShares: row[7], approved: row[8], status: Number(row[9]), accruedInterest, guaranteeShares: guarantee[0], guaranteeInterest: guarantee[1], borrowerShares } satisfies LoanRecord;
+          return { id, borrower: row[0], principal: row[1], outstanding: row[2], rateBps: row[3], maturity: row[7], lockedShares: row[8], borrowerLockedShares: row[9], approved: row[10], status: Number(row[11]), accruedInterest, guaranteeShares: guarantee[0], guaranteeInterest: guarantee[1], borrowerShares } satisfies LoanRecord;
         }));
         loans.push(...rows);
       }
@@ -171,8 +175,8 @@ function LoanHealthWallet({ mode }: { mode: 'loans' | 'health' }) {
       if (principal > calculateBorrowingCapacity(snapshot.userAssets, snapshot.multiplierBps)) throw new Error('Requested amount exceeds your contract-calculated borrowing capacity.');
       if (rateBps < ZERO || rateBps > BigInt(5_000) || !Number.isFinite(Number(rate))) throw new Error('Rate must be between 0% and 50%.');
       if (durationDays <= ZERO || durationDays > BigInt(3_650)) throw new Error('Choose a term between 1 and 3,650 days.');
-      const maturity = BigInt(Math.floor(Date.now() / 1000)) + durationDays * secondsPerDay;
-      if (await send('requestLoan', [principal, rateBps, maturity], 'Loan request recorded on-chain.')) setAmount('');
+      const term = durationDays * secondsPerDay;
+      if (await send('requestLoan', [principal, rateBps, term], 'Loan request recorded on-chain.')) setAmount('');
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Check the request inputs.'); }
   }
 
@@ -199,7 +203,7 @@ function LoanHealthWallet({ mode }: { mode: 'loans' | 'health' }) {
         publicClient.readContract({ address: chama.lending, abi: chamaLendingAbi, functionName: 'accruedInterest', args: [loan.id] }),
         publicClient.readContract({ address: chama.usdc, abi: erc20Abi, functionName: 'balanceOf', args: [primaryWallet?.address as Address] }),
       ]);
-      if (Number(currentLoan[9]) !== 1 || currentLoan[0].toLowerCase() !== primaryWallet?.address?.toLowerCase()) {
+      if (Number(currentLoan[11]) !== 1 || currentLoan[0].toLowerCase() !== primaryWallet?.address?.toLowerCase()) {
         throw new Error('This loan is no longer active for the connected borrower. Refresh and check its current status.');
       }
       const owed = getRepaymentAmount(currentLoan[2], currentInterest);
@@ -247,7 +251,7 @@ function LoanHealthWallet({ mode }: { mode: 'loans' | 'health' }) {
           const borrower = loan.borrower.toLowerCase() === account;
           const additional = getAdditionalGuaranteeShares(loan.principal, loan.lockedShares, loan.borrowerShares);
           return <article className="card loan-card" key={loan.id.toString()}><div className="loan-card-head"><div><span className="pill">Loan #{loan.id.toString()} · Pending</span><h3>{fmt(loan.principal)} USDC</h3><p className="muted">Borrower {shortAddress(loan.borrower)} · {(Number(loan.rateBps) / 100).toFixed(2)}% APR</p></div><span className="loan-status">{loan.approved ? 'Approved' : 'Awaiting owner'}</span></div>
-            <div className="deposit-breakdown"><div><span>Maturity</span><strong>{new Date(Number(loan.maturity) * 1000).toLocaleDateString()}</strong></div><div><span>More collateral required*</span><strong>{fmt(additional)} cUSDC</strong></div></div>
+            <div className="deposit-breakdown"><div><span>Maturity</span><strong>{formatMaturity(loan.maturity)}</strong></div><div><span>More collateral required*</span><strong>{fmt(additional)} cUSDC</strong></div></div>
             {!borrower && snapshot.isMember && additional > ZERO && <div className="loan-action-inline"><input className="input" aria-label={`Guarantee shares for loan ${loan.id}`} type="number" min="0" step="0.01" placeholder="cUSDC shares" value={guaranteeAmounts[loan.id.toString()] || ''} onChange={event => setGuaranteeAmounts(current => ({ ...current, [loan.id.toString()]: event.target.value }))}/><button className="secondary" disabled={busy || snapshot.paused || !guaranteeAmounts[loan.id.toString()]} onClick={() => void guarantee(loan)}>Guarantee</button></div>}
             {isOwner && <div className="loan-action-inline"><button className="primary" disabled={busy || loan.approved} onClick={() => void send('approveLoan', [loan.id, true], 'Loan approved on-chain.')}>Approve</button><button className="secondary" disabled={busy || !loan.approved} onClick={() => void send('approveLoan', [loan.id, false], 'Loan approval revoked on-chain.')}>Revoke approval</button></div>}
             {borrower && loan.approved && <button className="primary" disabled={busy || snapshot.paused || additional > ZERO} onClick={() => void send('activate', [loan.id], 'Loan activated and disbursed on-chain.')}>Activate & receive loan</button>}
@@ -259,7 +263,7 @@ function LoanHealthWallet({ mode }: { mode: 'loans' | 'health' }) {
         {activeLoans.length === 0 ? <div className="card"><p className="muted">No active loan records in the loaded on-chain range.</p></div> : <div className="loan-list">{activeLoans.map(loan => {
           const borrower = loan.borrower.toLowerCase() === account;
           const myGuarantee = loan.guaranteeShares;
-          return <article className="card loan-card" key={loan.id.toString()}><div className="loan-card-head"><div><span className="pill">Loan #{loan.id.toString()} · Active</span><h3>{fmt(loan.outstanding)} USDC outstanding</h3><p className="muted">Borrower {shortAddress(loan.borrower)} · maturity {new Date(Number(loan.maturity) * 1000).toLocaleDateString()}</p></div><span className="loan-status">{(Number(loan.rateBps) / 100).toFixed(2)}% APR</span></div>
+          return <article className="card loan-card" key={loan.id.toString()}><div className="loan-card-head"><div><span className="pill">Loan #{loan.id.toString()} · Active</span><h3>{fmt(loan.outstanding)} USDC outstanding</h3><p className="muted">Borrower {shortAddress(loan.borrower)} · maturity {formatMaturity(loan.maturity)}</p></div><span className="loan-status">{(Number(loan.rateBps) / 100).toFixed(2)}% APR</span></div>
             <div className="deposit-breakdown"><div><span>Accrued interest (live contract view)</span><strong>${fmt(loan.accruedInterest)}</strong></div><div><span>Total repayment amount</span><strong>${fmt(loan.outstanding + loan.accruedInterest)}</strong></div>{myGuarantee > ZERO && <div><span>Your locked guarantee shares</span><strong>{fmt(myGuarantee)} cUSDC</strong></div>}</div>
             {borrower && <button className="primary" disabled={busy || snapshot.paused || getRepaymentAmount(loan.outstanding, loan.accruedInterest) > snapshot.userBalance} onClick={() => void repay(loan)}>Approve USDC & repay in full</button>}
             {myGuarantee > ZERO && loan.guaranteeInterest > ZERO && <button className="secondary" disabled={busy} onClick={() => void send('claimGuaranteeInterest', [loan.id], 'Guarantor interest claimed.')}>Claim ${fmt(loan.guaranteeInterest)} guarantee interest</button>}

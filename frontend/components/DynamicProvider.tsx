@@ -11,12 +11,12 @@ const arcWalletNetwork = {
   chain: 'EVM',
   chainId: arc.id,
   networkId: arc.id,
-  isTestnet: true,
+  isTestnet: arc.id !== 5042,
   iconUrls: [],
   rpcUrls: [arc.rpcUrls.default.http[0]],
-  blockExplorerUrls: [],
+  blockExplorerUrls: arc.id === 5042 ? ['https://explorer.arc.io'] : [],
   nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 6 },
-};
+} as const;
 
 export function DynamicProvider({ children }: { children: React.ReactNode }) {
   if (!environmentId) {

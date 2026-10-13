@@ -13,6 +13,6 @@ export function handleLoanRequested(event: LoanRequested): void {
 }
 export function handleLoanApprovalUpdated(event: LoanApprovalUpdated): void { let loan = loanFor(event.address, event.params.id); if (loan == null) return; loan.updatedAt = event.block.timestamp; loan.save(); }
 export function handleGuaranteed(event: Guaranteed): void { let loan = loanFor(event.address, event.params.id); if (loan == null) return; loan.lockedShares = loan.lockedShares.plus(event.params.shares); loan.updatedAt = event.block.timestamp; loan.save(); }
-export function handleLoanActivated(event: LoanActivated): void { let loan = loanFor(event.address, event.params.id); if (loan == null) return; loan.status = 1; loan.updatedAt = event.block.timestamp; loan.save(); }
+export function handleLoanActivated(event: LoanActivated): void { let loan = loanFor(event.address, event.params.id); if (loan == null) return; loan.status = 1; loan.activatedAt = event.block.timestamp; loan.updatedAt = event.block.timestamp; loan.save(); }
 export function handleRepaid(event: Repaid): void { let loan = loanFor(event.address, event.params.id); if (loan == null) return; loan.outstanding = BigInt.zero(); loan.status = 2; loan.updatedAt = event.block.timestamp; loan.save(); }
 export function handleLiquidated(event: Liquidated): void { let loan = loanFor(event.address, event.params.id); if (loan == null) return; loan.outstanding = BigInt.zero(); loan.status = 4; loan.updatedAt = event.block.timestamp; loan.save(); }

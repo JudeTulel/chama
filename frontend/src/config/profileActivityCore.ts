@@ -50,10 +50,10 @@ function describe(event: ProfileActivityEvent): { title: string; detail: string;
   }
 }
 
-export function buildActivityFeed(events: ProfileActivityEvent[]): ProfileActivityItem[] {
+export function buildActivityFeed(events: ProfileActivityEvent[], explorerBaseUrl = 'https://explorer.arc.io'): ProfileActivityItem[] {
   return events.map(event => ({
     ...event,
     ...describe(event),
-    explorerUrl: `https://explorer.testnet.arc.io/tx/${event.transactionHash}`,
+    explorerUrl: `${explorerBaseUrl}/tx/${event.transactionHash}`,
   })).sort((left, right) => left.blockNumber > right.blockNumber ? -1 : left.blockNumber < right.blockNumber ? 1 : right.logIndex - left.logIndex);
 }
