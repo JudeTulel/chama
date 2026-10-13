@@ -30,7 +30,7 @@ const MAX_ACTIVITY_ITEMS = 200;
 const BLOCK_WINDOW = BigInt(4_000);
 const ZERO = BigInt(0);
 
-const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://rpc.testnet.arc.io';
+const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://rpc.mainnet.arc.io';
 const serverClient = createPublicClient({ chain: arc, transport: http(rpcUrl, { retryCount: 3, retryDelay: 1_000, timeout: 30_000 }) });
 
 export async function GET(request: Request) {
@@ -145,7 +145,7 @@ export async function GET(request: Request) {
         explorerUrl: e.explorerUrl,
         amount: e.amount?.toString(),
         // type-specific fields
-        ...('loanId' in e ? { loanId: e.loanId.toString() } : {}),
+        ...('loanId' in e ? { loanId: (e as any).loanId?.toString() } : {}),
         ...('principal' in e ? { principal: (e as any).principal?.toString() } : {}),
         ...('interest' in e ? { interest: (e as any).interest?.toString() } : {}),
         ...('shares' in e ? { shares: (e as any).shares?.toString() } : {}),
