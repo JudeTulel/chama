@@ -142,11 +142,11 @@ function LoanHealthWallet({ mode }: { mode: 'loans' | 'health' }) {
   async function send(functionName: string, args: readonly unknown[], success: string, approveAmount?: bigint): Promise<boolean> {
     setError(''); setMessage('');
     if (!chama || !primaryWallet?.address || !isEthereumWallet(primaryWallet)) { setError('Connect an EVM wallet to use loan actions.'); return false; }
+    if (!isChamaSelected(chama)) { setError('Select a chama from the home screen to continue.'); return false; }
     if (!snapshot?.isMember && ['requestLoan', 'guarantee', 'activate'].includes(functionName)) { setError('Only approved chama members can perform this action.'); return false; }
     if (functionName === 'approveLoan' && !isOwner) { setError('Only this lending contract’s owner can review loan requests.'); return false; }
     setBusy(true);
     try {
-      await assertSelectedChama(chama);
       await ensureWalletNetwork(primaryWallet, publicClient.chain.id);
       const client = await primaryWallet.getWalletClient();
       if (client.chain?.id !== publicClient.chain.id) throw new Error('Wallet is not using the configured network.');
@@ -257,7 +257,7 @@ function LoanHealthWallet({ mode }: { mode: 'loans' | 'health' }) {
             <div className="deposit-breakdown"><div><span>Maturity</span><strong>{formatMaturity(loan.maturity)}</strong></div><div><span>More collateral required*</span><strong>{fmt(additional)} cUSDC</strong></div></div>
             {!borrower && snapshot.isMember && additional > ZERO && <div className="loan-action-inline"><input className="input" aria-label={`Guarantee shares for loan ${loan.id}`} type="number" min="0" step="0.01" placeholder="cUSDC shares" value={guaranteeAmounts[loan.id.toString()] || ''} onChange={event => setGuaranteeAmounts(current => ({ ...current, [loan.id.toString()]: event.target.value }))}/><button className="secondary" disabled={busy || snapshot.paused || !guaranteeAmounts[loan.id.toString()]} onClick={() => void guarantee(loan)}>Guarantee</button></div>}
             {isOwner && <div className="loan-action-inline"><button className="primary" disabled={busy || loan.approved} onClick={() => void send('approveLoan', [loan.id, true], 'Loan approved on-chain.')}>Approve</button><button className="secondary" disabled={busy || !loan.approved} onClick={() => void send('approveLoan', [loan.id, false], 'Loan approval revoked on-chain.')}>Revoke approval</button></div>}
-            {borrower && loan.approved && <button className="primary" disabled={busy || snapshot.paused || additional > ZERO} onClick={() => void send('activate', [loan.id], 'Loan activated and disbursed on-chain.')}>Activate & receive loan</button>}
+            {borrower && loan.approved && <button className="primary" disabled={busy || snapshot.paused} onClick={() => void send('activate', [loan.id], 'Loan activated and disbursed on-chain.')}>Activate & receive loan</button>}
             <p className="footnote">* Contract activation checks borrower shares plus guarantor shares against requested principal. {additional === ZERO ? 'Collateral requirement appears met.' : 'Only guarantee shares where you accept the collateral-lock and liquidation risk.'}</p>
           </article>;
         })}</div>}
