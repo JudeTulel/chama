@@ -2,11 +2,11 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Bell, Home, Landmark, PiggyBank, ShieldCheck, UserRound } from 'lucide-react';
+import { Bell, Gauge, Home, Landmark, PiggyBank, Settings2, UserRound } from 'lucide-react';
 import { WalletButton } from './DynamicProvider';
 import { readSelectedChama, selectedChamaEventName } from '../src/config/selectedChama';
 
-const nav = [['/', Home, 'Home'], ['/deposit', PiggyBank, 'Deposit'], ['/loans', Landmark, 'Loans'], ['/health', ShieldCheck, 'Health'], ['/manage', ShieldCheck, 'Manage'], ['/profile', UserRound, 'Profile']] as const;
+const nav = [['/', Home, 'Home'], ['/deposit', PiggyBank, 'Deposit'], ['/loans', Landmark, 'Loans'], ['/health', Gauge, 'Health'], ['/manage', Settings2, 'Manage'], ['/profile', UserRound, 'Profile']] as const;
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [chamaName, setChamaName] = useState('Your chama');
