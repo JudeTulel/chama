@@ -6,7 +6,7 @@ import { LoaderCircle } from 'lucide-react';
 import { publicClient } from '../../src/config/contracts';
 import { chamaDirectoryAbi } from '../../src/abi/ChamaDirectory';
 import { ChamaOwnerTools } from '../../components/ChamaOwnerTools';
-import { readSelectedChama, saveSelectedChama, selectedChamaEventName } from '../../src/config/selectedChama';
+import { readSelectedChama, isChamaSelected, saveSelectedChama, selectedChamaEventName } from '../../src/config/selectedChama';
 import type { ChamaDeployment } from '../../src/config/contracts';
 import type { Address } from 'viem';
 
@@ -27,7 +27,7 @@ export default function ManagePage() {
   }, []);
 
   const refresh = useCallback(async () => {
-    if (!chama || !primaryWallet?.address) return;
+    if (!chama || !isChamaSelected(chama) || !primaryWallet?.address) return;
     setLoading(true); setError('');
     try {
       const member = await publicClient.readContract({
@@ -46,7 +46,7 @@ export default function ManagePage() {
 
   useEffect(() => { void refresh(); }, [refresh]);
 
-  if (!chama) {
+  if (!chama || !isChamaSelected(chama)) {
     return <main className="page finance-page">
       <section className="section">
         <div className="card">

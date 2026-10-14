@@ -7,17 +7,21 @@ const selectionEvent = 'chama:selection-changed';
 
 export const defaultChama: ChamaDeployment = {
   chamaId: BigInt(0),
-  owner: (process.env.NEXT_PUBLIC_DEFAULT_CHAMA_OWNER || '0x67352B92EA3a8B38eAF93ca91BD108e7c29B6dd7') as Address,
+  owner: zero,
   usdc: (process.env.NEXT_PUBLIC_USDC_ADDRESS || '0x3600000000000000000000000000000000000000') as Address,
-  registry: (process.env.NEXT_PUBLIC_DEFAULT_REGISTRY_ADDRESS || '0x7cB11C30ead262bDbFc9EF60Bcc51800109eFBb6') as Address,
-  insuranceFund: (process.env.NEXT_PUBLIC_DEFAULT_INSURANCE_ADDRESS || '0x7cB11C30ead262bDbFc9EF60Bcc51800109eFBb6') as Address,
-  vault: (process.env.NEXT_PUBLIC_DEFAULT_VAULT_ADDRESS || '0x6AE575a3984eC30C1Db8f2d4d9b5Fa739ba4a4D9') as Address,
-  lending: (process.env.NEXT_PUBLIC_DEFAULT_LENDING_ADDRESS || '0x7E247E53b95e93Abf5A5DF65Cbc421E24083C55B') as Address,
-  name: 'Chama',
+  registry: zero,
+  insuranceFund: zero,
+  vault: zero,
+  lending: zero,
+  name: '',
   metadataURI: '',
-  active: true,
-  acceptingMembers: true,
+  active: false,
+  acceptingMembers: false,
 };
+
+export function isChamaSelected(chama: ChamaDeployment): boolean {
+  return chama.vault !== zero && chama.lending !== zero && chama.registry !== zero;
+}
 
 export function readSelectedChama(): ChamaDeployment {
   if (typeof window === 'undefined') return defaultChama;

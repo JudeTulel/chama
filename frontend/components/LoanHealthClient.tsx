@@ -11,7 +11,7 @@ import { chamaVaultAbi } from '../src/abi/ChamaVault';
 import { chamaDirectoryAbi } from '../src/abi/ChamaDirectory';
 import { membershipRegistryAbi } from '../src/abi/MembershipRegistry';
 import { ensureWalletNetwork } from '../src/config/networkActions';
-import { readSelectedChama, selectedChamaEventName } from '../src/config/selectedChama';
+import { readSelectedChama, isChamaSelected, selectedChamaEventName } from '../src/config/selectedChama';
 import type { ChamaDeployment } from '../src/config/contracts';
 import { calculateBorrowingCapacity, getAdditionalGuaranteeShares, getLoanStatusLabel, getRepaymentAmount, loadSubgraphHealth, summarizeActiveLoans, type SubgraphHealth } from '../src/config/loanHealthCore';
 
@@ -80,8 +80,9 @@ function LoanHealthWallet({ mode }: { mode: 'loans' | 'health' }) {
   }, []);
 
   const refresh = useCallback(async () => {
-    if (!chama) return;
     setLoading(true); setError(''); setSnapshot(null);
+    if (!chama || !isChamaSelected(chama)) { setError('Select a chama from the home screen to continue.'); setLoading(false); return; }
+    if (!primaryWallet?.address) { setLoading(false); return; }
     try {
       await assertSelectedChama(chama);
       const account = (primaryWallet?.address || '0x0000000000000000000000000000000000000000') as Address;

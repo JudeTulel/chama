@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import { Activity, ArrowDownLeft, ArrowUpRight, ExternalLink, Landmark, LoaderCircle, RefreshCw, Wallet } from 'lucide-react';
 import { formatUnits, type Address } from 'viem';
-import { readSelectedChama, selectedChamaEventName } from '../src/config/selectedChama';
+import { readSelectedChama, isChamaSelected, selectedChamaEventName } from '../src/config/selectedChama';
 
 const ZERO = BigInt(0);
 const dynamicEnvironmentReady = Boolean(process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID);
@@ -42,7 +42,7 @@ function ProfileActivityWallet() {
   const [cachedAt, setCachedAt] = useState('');
 
   useEffect(() => {
-    const update = () => { setChama(readSelectedChama()?.lending || null); setActivity([]); };
+    const update = () => { const selected = readSelectedChama(); setChama(isChamaSelected(selected) ? selected.lending : null); setActivity([]); };
     update();
     window.addEventListener(selectedChamaEventName(), update);
     return () => window.removeEventListener(selectedChamaEventName(), update);
@@ -50,7 +50,7 @@ function ProfileActivityWallet() {
 
   const refresh = useCallback(async () => {
     const ch = readSelectedChama();
-    if (!ch || !primaryWallet?.address) { setActivity([]); return; }
+    if (!ch || !isChamaSelected(ch) || !primaryWallet?.address) { setActivity([]); return; }
 
     const account = primaryWallet.address as Address;
     const key = `${ch.chamaId}-${account}`;

@@ -9,7 +9,7 @@ import { addresses, publicClient } from '../src/config/contracts';
 import { chamaVaultAbi } from '../src/abi/ChamaVault';
 import { chamaDirectoryAbi } from '../src/abi/ChamaDirectory';
 import { ensureWalletNetwork } from '../src/config/networkActions';
-import { readSelectedChama, selectedChamaEventName } from '../src/config/selectedChama';
+import { readSelectedChama, isChamaSelected, selectedChamaEventName } from '../src/config/selectedChama';
 import type { ChamaDeployment } from '../src/config/contracts';
 
 const formatUsdc = (amount: bigint) => {
@@ -72,6 +72,7 @@ function DepositWallet() {
 
   const refresh = useCallback(async () => {
     if (!chama || !primaryWallet?.address) return;
+    if (!isChamaSelected(chama)) { setError('Select a chama from the home screen to continue.'); setHasLiveData(false); return; }
     setLoading(true); setError(''); setHasLiveData(false);
     try {
       await assertChamaMatchesDirectory(chama);
