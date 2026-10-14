@@ -16,7 +16,7 @@ const arcWalletNetwork = {
   rpcUrls: [arc.rpcUrls.default.http[0]],
   blockExplorerUrls: arc.id === 5042 ? ['https://explorer.arc.io'] : [],
   nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 6 },
-} as const;
+};
 
 export function DynamicProvider({ children }: { children: React.ReactNode }) {
   if (!environmentId) {
