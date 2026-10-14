@@ -54,7 +54,7 @@ export async function GET(request: Request) {
     const vault = getAddress(vaultStr);
     const directory = getAddress(directoryStr);
     const usdc = getAddress(usdcStr);
-    const directoryDeploymentBlock = BigInt(directoryDeploymentStr || '64486284');
+    const directoryDeploymentBlock = BigInt(directoryDeploymentStr || '25697486');
 
     const cacheKey = `${chamaIdStr}-${accountStr}`;
     const result = await cached(cacheKey, async () => {

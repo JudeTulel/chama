@@ -7,7 +7,7 @@ const env = {
   usdc: process.env.NEXT_PUBLIC_USDC_ADDRESS || '0x3600000000000000000000000000000000000000',
   factory: process.env.NEXT_PUBLIC_CHAMA_FACTORY_ADDRESS || '0x34dc2d41aa33679c829772bcfe5a55b01303ec9c',
   directory: process.env.NEXT_PUBLIC_CHAMA_DIRECTORY_ADDRESS || '0x373d946f6acd652cb886b9753f1420bf519ed452',
-  directoryDeploymentBlock: BigInt(process.env.NEXT_PUBLIC_CHAMA_DIRECTORY_DEPLOYMENT_BLOCK || '25696600'),
+  directoryDeploymentBlock: BigInt(process.env.NEXT_PUBLIC_CHAMA_DIRECTORY_DEPLOYMENT_BLOCK || '25697486'),
   subgraphUrl: process.env.NEXT_PUBLIC_SUBGRAPH_URL || '',
 };
 export const arc = defineChain({ id: env.chainId, name: env.chainId === 5042002 ? 'Arc Testnet' : 'Arc', nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 6 }, rpcUrls: { default: { http: [env.rpcUrl] } }, blockExplorers: env.chainId === 5042 ? { default: { name: 'Arc Explorer', url: 'https://explorer.arc.io' } } : undefined });

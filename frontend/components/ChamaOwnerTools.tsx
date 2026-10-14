@@ -5,13 +5,13 @@ import { keccak256, stringToHex, type Address } from 'viem';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import { isEthereumWallet } from '@dynamic-labs/ethereum';
 import { Check, Copy, LoaderCircle, Mail, MessageCircle, Pencil, ShieldCheck, Users, X } from 'lucide-react';
-import { addresses, publicClient, subgraphUrl, type ChamaDeployment } from '../src/config/contracts';
+import { addresses, publicClient, type ChamaDeployment } from '../src/config/contracts';
 import { chamaDirectoryAbi } from '../src/abi/ChamaDirectory';
 import { membershipRegistryAbi } from '../src/abi/MembershipRegistry';
 import { ensureWalletNetwork } from '../src/config/networkActions';
 import { buildInviteShareLinks } from './inviteShareLinks';
 import { normalizeChamaName } from '../src/config/chamaNameCore';
-import { loadPendingJoinRequests, type PendingJoinRequest } from '../src/config/pendingJoinRequestsCore';
+import { loadPendingJoinRequestsFromRpc, type PendingJoinRequest } from '../src/config/pendingJoinRequestsCore';
 
 export function ChamaOwnerTools({ chama, isMember, onMembershipUpdated, onNameUpdated }: { chama: ChamaDeployment; isMember: boolean; onMembershipUpdated: () => void; onNameUpdated: (deployment: ChamaDeployment) => void }) {
   const { primaryWallet } = useDynamicContext();
@@ -33,7 +33,7 @@ export function ChamaOwnerTools({ chama, isMember, onMembershipUpdated, onNameUp
     setLoadingRequests(true);
     setError('');
     try {
-      setPendingRequests(await loadPendingJoinRequests(subgraphUrl, chama.chamaId));
+      setPendingRequests(await loadPendingJoinRequestsFromRpc(addresses.directory, chama.chamaId));
     } catch (cause) {
       setError(cause instanceof Error ? `Could not load pending join requests: ${cause.message}` : 'Could not load pending join requests.');
     } finally {

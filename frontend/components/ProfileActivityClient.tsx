@@ -66,10 +66,10 @@ function ProfileActivityWallet() {
         vault: ch.vault,
         directory: ch.registry,   // The deployment's directory was the selected chama's registry — we need the actual directory address
         usdc: ch.usdc,
-        directoryDeploymentBlock: process.env.NEXT_PUBLIC_CHAMA_DIRECTORY_DEPLOYMENT_BLOCK || '64486284',
+        directoryDeploymentBlock: process.env.NEXT_PUBLIC_CHAMA_DIRECTORY_DEPLOYMENT_BLOCK || '25697486',
       });
       // override — the directory is a fixed deployment address, not per-chama
-      params.set('directory', process.env.NEXT_PUBLIC_CHAMA_DIRECTORY_ADDRESS || '0x35e87026e77618fE9411F278f3870554aec6398f');
+      params.set('directory', process.env.NEXT_PUBLIC_CHAMA_DIRECTORY_ADDRESS || '0x373d946f6acd652cb886b9753f1420bf519ed452');
 
       const res = await fetch(`/api/profile-activity?${params}`);
       const data = await res.json();
