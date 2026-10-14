@@ -85,18 +85,19 @@ function LoanHealthWallet({ mode }: { mode: 'loans' | 'health' }) {
     try {
       await assertSelectedChama(chama);
       const account = (primaryWallet?.address || '0x0000000000000000000000000000000000000000') as Address;
+      const safe = <T,>(p: Promise<T>, fallback: T): Promise<T> => p.catch(() => fallback);
       const [nextId, totalAssets, liquidAssets, insuranceBalance, outstandingPrincipal, userShares, userBalance, isMember, owner, multiplierBps, paused] = await Promise.all([
-        publicClient.readContract({ address: chama.lending, abi: chamaLendingAbi, functionName: 'nextLoanId' }),
-        publicClient.readContract({ address: chama.vault, abi: chamaVaultAbi, functionName: 'totalAssets' }),
-        publicClient.readContract({ address: chama.usdc, abi: erc20Abi, functionName: 'balanceOf', args: [chama.vault] }),
-        publicClient.readContract({ address: chama.usdc, abi: erc20Abi, functionName: 'balanceOf', args: [chama.insuranceFund] }),
-        publicClient.readContract({ address: chama.vault, abi: chamaVaultAbi, functionName: 'outstandingPrincipal' }),
-        publicClient.readContract({ address: chama.vault, abi: chamaVaultAbi, functionName: 'balanceOf', args: [account] }),
-        publicClient.readContract({ address: chama.usdc, abi: erc20Abi, functionName: 'balanceOf', args: [account] }),
-        primaryWallet?.address ? publicClient.readContract({ address: chama.registry, abi: membershipRegistryAbi, functionName: 'isMember', args: [account] }) : Promise.resolve(false),
-        publicClient.readContract({ address: chama.lending, abi: chamaLendingAbi, functionName: 'owner' }),
-        publicClient.readContract({ address: chama.lending, abi: chamaLendingAbi, functionName: 'maxLoanMultiplierBps' }),
-        publicClient.readContract({ address: chama.lending, abi: chamaLendingAbi, functionName: 'paused' }),
+        safe(publicClient.readContract({ address: chama.lending, abi: chamaLendingAbi, functionName: 'nextLoanId' }), BigInt(0)),
+        safe(publicClient.readContract({ address: chama.vault, abi: chamaVaultAbi, functionName: 'totalAssets' }), BigInt(0)),
+        safe(publicClient.readContract({ address: chama.usdc, abi: erc20Abi, functionName: 'balanceOf', args: [chama.vault] }), BigInt(0)),
+        safe(publicClient.readContract({ address: chama.usdc, abi: erc20Abi, functionName: 'balanceOf', args: [chama.insuranceFund] }), BigInt(0)),
+        safe(publicClient.readContract({ address: chama.vault, abi: chamaVaultAbi, functionName: 'outstandingPrincipal' }), BigInt(0)),
+        safe(publicClient.readContract({ address: chama.vault, abi: chamaVaultAbi, functionName: 'balanceOf', args: [account] }), BigInt(0)),
+        safe(publicClient.readContract({ address: chama.usdc, abi: erc20Abi, functionName: 'balanceOf', args: [account] }), BigInt(0)),
+        primaryWallet?.address ? safe(publicClient.readContract({ address: chama.registry, abi: membershipRegistryAbi, functionName: 'isMember', args: [account] }), false) : Promise.resolve(false),
+        safe(publicClient.readContract({ address: chama.lending, abi: chamaLendingAbi, functionName: 'owner' }), '0x0000000000000000000000000000000000000000' as Address),
+        safe(publicClient.readContract({ address: chama.lending, abi: chamaLendingAbi, functionName: 'maxLoanMultiplierBps' }), BigInt(30_000)),
+        safe(publicClient.readContract({ address: chama.lending, abi: chamaLendingAbi, functionName: 'paused' }), false),
       ]);
       const [userAssets, subgraphHealth] = await Promise.all([
         userShares > ZERO ? publicClient.readContract({ address: chama.vault, abi: chamaVaultAbi, functionName: 'convertToAssets', args: [userShares] }) : Promise.resolve(ZERO),
@@ -112,15 +113,16 @@ function LoanHealthWallet({ mode }: { mode: 'loans' | 'health' }) {
       for (let offset = 0; offset < count; offset += 5) {
         const ids = Array.from({ length: Math.min(5, count - offset) }, (_, i) => first + BigInt(offset + i));
         const rows = await Promise.all(ids.map(async id => {
-          const row = await publicClient.readContract({ address: chama.lending, abi: chamaLendingAbi, functionName: 'loans', args: [id] });
+          const row = await publicClient.readContract({ address: chama.lending, abi: chamaLendingAbi, functionName: 'loans', args: [id] }).catch(() => null);
+          if (!row) return null;
           const [guarantee, accruedInterest, borrowerShares] = await Promise.all([
-            mode === 'loans' && primaryWallet?.address ? publicClient.readContract({ address: chama.lending, abi: chamaLendingAbi, functionName: 'guarantees', args: [id, account] }) : Promise.resolve([ZERO, ZERO] as const),
-            mode === 'loans' && Number(row[11]) === 1 ? publicClient.readContract({ address: chama.lending, abi: chamaLendingAbi, functionName: 'accruedInterest', args: [id] }) : Promise.resolve(ZERO),
-            mode === 'loans' && Number(row[11]) === 0 ? publicClient.readContract({ address: chama.vault, abi: chamaVaultAbi, functionName: 'balanceOf', args: [row[0]] }) : Promise.resolve(ZERO),
+            mode === 'loans' && primaryWallet?.address ? publicClient.readContract({ address: chama.lending, abi: chamaLendingAbi, functionName: 'guarantees', args: [id, account] }).catch(() => [ZERO, ZERO] as const) : Promise.resolve([ZERO, ZERO] as const),
+            mode === 'loans' && Number(row[11]) === 1 ? publicClient.readContract({ address: chama.lending, abi: chamaLendingAbi, functionName: 'accruedInterest', args: [id] }).catch(() => ZERO) : Promise.resolve(ZERO),
+            mode === 'loans' && Number(row[11]) === 0 ? publicClient.readContract({ address: chama.vault, abi: chamaVaultAbi, functionName: 'balanceOf', args: [row[0]] }).catch(() => ZERO) : Promise.resolve(ZERO),
           ]);
           return { id, borrower: row[0], principal: row[1], outstanding: row[2], rateBps: row[3], maturity: row[7], lockedShares: row[8], borrowerLockedShares: row[9], approved: row[10], status: Number(row[11]), accruedInterest, guaranteeShares: guarantee[0], guaranteeInterest: guarantee[1], borrowerShares } satisfies LoanRecord;
         }));
-        loans.push(...rows);
+        loans.push(...rows.filter(Boolean) as LoanRecord[]);
       }
       setSnapshot({ loans: loans.reverse(), nextId, totalAssets, liquidAssets, insuranceBalance, outstandingPrincipal, userShares, userAssets, userBalance, isMember, owner, multiplierBps, paused, subgraphHealth, subgraphCollateralAssets, truncated: nextId > BigInt(MAX_LOANS_TO_READ) });
     } catch (cause) {
