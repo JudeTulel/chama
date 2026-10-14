@@ -1,5 +1,24 @@
 # Chama
 
+## What Chama is
+
+A **chama** is a rotating savings and credit group — friends, colleagues, or neighbours pool money on a regular schedule, lend to each other at agreed terms, and hold one another accountable. Chamas move real money for millions of people across Africa, but they mostly run on trust, paper, and one treasurer holding the cash book. There is no shared record of who contributed or repaid, no credit history that survives the group, no way to lend beyond your circle of friends, and no impartial referee when someone defaults. The social capital is real; the financial plumbing around it is not.
+
+**Social networks connected friends. This repo turns those friendships into social capital.**
+
+Chama on Arc takes the trust a group already has and gives it an engine: deposits become share tokens, members earn yield by guaranteeing each other's loans, an insurance reserve absorbs defaults instead of awkward conversations, and every contribution, guarantee, and repayment becomes on-chain reputation that outlives the group. Groups become discoverable credit networks instead of isolated notebooks.
+
+## What this repo does
+
+This repo turns that model into working software — a multi-chama protocol and a mobile-first app:
+
+- **One transaction to spin up a complete, isolated chama** — membership registry, USDC savings vault, lending module, insurance fund, and directory listing, wired together by `ChamaFactory` (contracts/src/ChamaFactory.sol).
+- **Share-based savings** — members deposit USDC and hold `cUSDC` shares whose value grows with the pool's interest income (ChamaVault.sol).
+- **Peer-guaranteed lending** — loans are capped at savings capacity, require owner approval, and are collateralized by borrower plus multiple guarantors' shares; guarantors earn 50% of interest by default (ChamaLending.sol).
+- **Insurance and a liquidation waterfall** — 1% of deposits and 9% of interest fund a reserve that covers defaults before collateral losses are socialized (InsuranceFund.sol).
+- **Discovery and invitations** — hashed invite codes, join requests, and owner approvals replace WhatsApp org charts (ChamaDirectory.sol).
+- **A wallet-first frontend** — embedded wallets or MetaMask, guided create/join onboarding, live deposit, loan, activity, and solvency views, all reading on-chain state directly (frontend/).
+
 Chama is a multi-chama, single-asset cooperative finance application built for Arc using USDC. It combines an on-chain SACCO/chama protocol with a mobile-first Next.js frontend.
 
 The project supports isolated chamas created through a factory. Each chama has its own membership registry, USDC share vault, lending module, and insurance fund. A shared directory provides chama discovery, invite-code links, and join requests.
