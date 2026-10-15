@@ -7,6 +7,7 @@ import { publicClient } from '../../src/config/contracts';
 import { chamaDirectoryAbi } from '../../src/abi/ChamaDirectory';
 import { ChamaOwnerTools } from '../../components/ChamaOwnerTools';
 import { readSelectedChama, isChamaSelected, saveSelectedChama, selectedChamaEventName } from '../../src/config/selectedChama';
+import { LoanHealthClient } from '../../components/LoanHealthClient';
 import type { ChamaDeployment } from '../../src/config/contracts';
 import type { Address } from 'viem';
 
@@ -66,6 +67,7 @@ export default function ManagePage() {
       {loading && <p className="muted"><LoaderCircle className="spin" size={15}/> Loading membership status…</p>}
       {error && <p className="feedback error">{error}</p>}
     </section>
+    <LoanHealthClient mode="health" />
     <ChamaOwnerTools
       chama={chama}
       isMember={isMember}

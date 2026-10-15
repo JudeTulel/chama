@@ -1,7 +1,7 @@
-import { LoanHealthClient } from '../../components/LoanHealthClient';
+import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
 export default function HealthPage() {
-  return <LoanHealthClient mode="health" />;
+  redirect('/manage');
 }
