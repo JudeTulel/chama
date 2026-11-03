@@ -10,23 +10,36 @@ import {
   LoaderCircle,
   Wallet,
 } from 'lucide-react';
-import { formatUnits, parseUnits } from 'viem';
-import { getSwapQuote, executeSwapTransaction, getSwapStatus } from '@dynamic-labs-sdk/client';
-
-const USDC = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
+import { formatUnits } from 'viem';
+import { createClient, getQuote } from '@lifi/sdk';
 
 // Source = Base (where the MiniSend onramp lands USDC).
-// Destination = Arc (the chama chain, matching NEXT_PUBLIC_CHAIN_ID in .env.example).
-const BASE = { chain: 'EVM' as const, networkId: '8453' as const, chainId: 8453, label: 'Base' };
-const ARC = { chain: 'EVM' as const, networkId: '5042' as const, chainId: 5042, label: 'Arc (chama)' };
+// Destination = Arc (the chama chain, NEXT_PUBLIC_CHAIN_ID=5042).
+const USDC = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
+const BASE: { chainId: number; networkId: string; label: string; explorer: string } = {
+  chainId: 8453,
+  networkId: '8453',
+  label: 'Base',
+  explorer: 'https://basescan.org',
+};
+const ARC: { chainId: number; networkId: string; label: string; explorer: string } = {
+  chainId: 5042,
+  networkId: '5042',
+  label: 'Arc (chama)',
+  explorer: 'https://explorer.arc.io',
+};
+
+// Integrator name shown to LI.FI; a unique string so fees go to our org.
+const INTEGRATOR = 'chama-app';
 
 export default function BridgePage() {
   const { primaryWallet } = useDynamicContext();
   const [amount, setAmount] = useState('');
-  const [quote, setQuote] = useState<Record<string, unknown> | null>(null);
-  const [status, setStatus] = useState<'idle' | 'quoting' | 'ready' | 'executing' | 'done' | 'error'>('idle');
+  const [quote, setQuote] = useState<any>(null);
+  const [status, setStatus] = useState<
+    'idle' | 'quoting' | 'ready' | 'executing' | 'done' | 'error'
+  >('idle');
   const [error, setError] = useState('');
-  const [submitHash, setSubmitHash] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   async function getQuote() {
@@ -41,32 +54,34 @@ export default function BridgePage() {
     setError('');
     setStatus('quoting');
     try {
-      const quoteRes = await getSwapQuote({
-        from: {
-          address: primaryWallet.address,
-          chain: BASE.chain,
-          networkId: BASE.networkId,
-          tokenAddress: USDC,
-          amount: parseUnits(amount, 6).toString(),
-        },
-        to: {
-          address: primaryWallet.address,
-          chain: ARC.chain,
-          networkId: ARC.networkId,
-          tokenAddress: USDC,
-        },
+      // Gasless quote: LI.FI returns a signable step (EIP-712 batched call)
+      // and a relay fee itemised in the quote, so the user spends no Base gas.
+      const client = createClient({ integrator: INTEGRATOR });
+      const _quote = await getQuote(client, {
+        fromChain: BASE.chainId,
+        toChain: ARC.chainId,
+        fromToken: USDC,
+        toToken: USDC,
+        fromAmount: parseUnits(amount, 6).toString(),
+        fromAddress: primaryWallet.address,
         slippage: 0.005,
+        // Lenders will have no native token; gasless is the capital-free path.
+        gasless: true,
       });
-      setQuote(quoteRes);
+      setQuote(_quote);
       setStatus('ready');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Quote failed. Check your Dynamic environment and chain settings.');
+    } catch (e: any) {
+      setError(
+        e?.data?.message ||
+          e?.message ||
+          'Quote failed — check your Linked LI.FI key and wallet conneciton.',
+      );
       setStatus('idle');
     }
   }
 
   async function executeBridge() {
-    if (!quote?.signingPayload) {
+    if (!quote) {
       setError('No quote ready. Click "Get quote" first.');
       return;
     }
@@ -77,33 +92,81 @@ export default function BridgePage() {
     setSubmitting(true);
     setError('');
     setStatus('executing');
+
     try {
-      const { transactionHash } = await executeSwapTransaction({
-        walletAccount: {
-          address: primaryWallet.address,
-          chain: BASE.chain,
-          networkId: BASE.networkId,
-          tokenAddress: USDC,
-        },
-        signingPayload: quote.signingPayload,
+      // Pull the signable step from the gasless quote and ask the user to sign.
+      // On acceptance LI.FI relays the batched call and pays gas with the relay
+      // fee deducted from the input token (no Base balance required from you).
+      const client = createClient({ integrator: INTEGRATOR });
+      const step = await getQuote(client, {
+        fromChain: BASE.chainId,
+        toChain: ARC.chainId,
+        fromToken: USDC,
+        toToken: USDC,
+        fromAmount: parseUnits(amount, 6).toString(),
+        fromAddress: primaryWallet.address,
+        slippage: 0.005,
+        gasless: true,
       });
-      setSubmitHash(transactionHash);
+
+      // Sign the EIP-712 typed data with the connected wallet.
+      const signature = await window.ethereum.request({
+        method: 'eth_signTypedData_v4',
+        params: [
+          primaryWallet.address,
+          JSON.stringify(step.typedData[0] || step.typedData),
+        ],
+      });
+
+      const relayBody = {
+        ...step,
+        typedData: [{ ...step.typedData[0], signature }],
+      };
+
+      const res = await fetch('https://li.quest/v1/advanced/relay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(relayBody),
+      });
+      const body = await res.json();
+      if (!res.ok || !body.data?.taskId) {
+        throw new Error(body?.error?.message || 'Relay rejected.');
+      }
+      const taskId = body.data.taskId;
+
+      // Poll until DONE / FAILED (accounts for a relayed tx that may take a while).
       let attempts = 0;
       const timer = setInterval(async () => {
         attempts += 1;
-        const st = await getSwapStatus({
-          txHash: transactionHash as string,
-          from: { chain: BASE.chain, networkId: BASE.networkId },
-          to: { chain: ARC.chain, networkId: ARC.networkId },
-        });
-        if (st.status === 'completed' || st.status === 'failed' || attempts > 40) {
-          clearInterval(timer);
-          setStatus(st.status);
-          setSubmitting(false);
+        try {
+          const st = await (
+            await fetch(`https://li.quest/v1/status?taskId=${taskId}`, {
+              headers: { 'Content-Type': 'application/json' },
+            })
+          ).json();
+          if (st.status === 'DONE' || st.status === 'FAILED' || attempts > 60) {
+            clearInterval(timer);
+            setStatus(st.status);
+            setSubmitting(false);
+            // Show a success/failure card with the task hash we persisted.
+            setQuote({ taskId, status: st.status, ...quote, applied: true });
+          }
+        } catch (e) {
+          if (attempts > 60) {
+            clearInterval(timer);
+            setStatus('error');
+            setSubmitting(false);
+          }
         }
       }, 5000);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Execution failed.');
+
+      // Owner-facing success immediately after relay accepted.
+      setStatus('ready');
+      // Note: the bridge completes on-chain asynchronously; the polling card
+      // below shows the live task status.
+      setQuote({ taskId, status: 'PENDING', ...quote, applied: true });
+    } catch (e: any) {
+      setError(e?.message || 'Execution failed.');
       setStatus('error');
       setSubmitting(false);
     }
@@ -114,18 +177,26 @@ export default function BridgePage() {
       <section className="section">
         <div className="section-head">
           <div>
-            <span className="eyebrow">DYNAMIC BRIDGE</span>
-            <h1 className="section-title">Bridge USDC to your Arc chama</h1>
+            <span className="eyebrow">LIFI BRIDGE</span>
+            <h1 className="section-title">Bridge USDC to Arc chama</h1>
           </div>
-          <Link href="/onramp" className="text-button">Back to onramp</Link>
+          <Link href="/onramp" className="text-button">
+            Back to onramp
+          </Link>
         </div>
 
         {status === 'idle' && !primaryWallet?.address && (
           <div className="card">
-            <span className="profile-icon"><Wallet size={20} /></span>
+            <span className="profile-icon">
+              <Wallet size={20} />
+            </span>
             <div>
               <strong>Connect a wallet to bridge USDC to Arc.</strong>
-              <p className="muted">The connected wallet stays connected on the profile page and is used for the cross-chain swap.</p>
+              <p className="muted">
+                The connected wallet stays connected on the profile page. With
+                LI.FI gasless the wallet pays no Base gas — LI.FI relays the
+                signed payload.
+              </p>
             </div>
           </div>
         )}
@@ -161,8 +232,17 @@ export default function BridgePage() {
                 />
                 <span className="token-symbol">USDC</span>
               </div>
-              <button className="primary" onClick={getQuote} disabled={submitting}>
-                {submitting ? <LoaderCircle className="spin" size={16} /> : <ArrowRightLeft size={16} />} Get quote
+              <button
+                className="primary"
+                onClick={getQuote}
+                disabled={submitting}
+              >
+                {submitting ? (
+                  <LoaderCircle className="spin" size={16} />
+                ) : (
+                  <ArrowRightLeft size={16} />
+                )}
+                Get quote
               </button>
             </div>
           </div>
@@ -171,7 +251,7 @@ export default function BridgePage() {
         {status === 'quoting' && (
           <div className="card">
             <LoaderCircle className="spin" size={18} />
-            <p className="muted">Getting the cross-chain quote…</p>
+            <p className="muted">Getting the cross-chain quote (gasless)…</p>
           </div>
         )}
 
@@ -179,91 +259,104 @@ export default function BridgePage() {
           <div className="card">
             <div className="metric-grid">
               <div className="metric">
-                <strong>≈ {quoteToAmount(quote)}</strong>
-                <span>Est. USDC on Arc</span>
+                <strong>From</strong>
+                <span>
+                  {amount} USDC on {BASE.label}
+                </span>
               </div>
               <div className="metric">
-                <strong>{quoteExecutionTime(quote)}</strong>
-                <span>Est. execution</span>
+                <strong>To (est.)</strong>
+                <span>
+                  ≈ {quote.toAmount
+                    ? formatUnits(BigInt(quote.toAmount), 6)
+                    : '—'}{' '}
+                  USDC on Arc
+                </span>
               </div>
               <div className="metric">
-                <strong>{quoteFee(quote)}</strong>
-                <span>Est. fee</span>
+                <strong>Relay fee</strong>
+                <span>
+                  {quote.relayFee
+                    ? formatUnits(BigInt(quote.relayFee), 6)
+                    : '0'}{' '}
+                  USDC
+                </span>
               </div>
             </div>
-            <p className="footnote">{quoteDetail(quote)}</p>
+            {quote.detail && (
+              <p className="footnote">{quote.detail}</p>
+            )}
             <div style={{ marginTop: 16 }}>
-              <button className="primary" onClick={executeBridge} disabled={submitting}>
-                {submitting ? <LoaderCircle className="spin" size={16} /> : <ArrowRightLeft size={16} />} Bridge now
+              <button
+                className="primary"
+                onClick={executeBridge}
+                disabled={submitting}
+              >
+                {submitting ? (
+                  <LoaderCircle className="spin" size={16} />
+                ) : (
+                  <ArrowRightLeft size={16} />
+                )}
+                Bridge now
               </button>
-              <p className="footnote">Execution is signed in your Dynamic wallet. A pending swap on Base settles USDC to your Arc wallet.</p>
+              <p className="footnote">
+                No Base balance needed: you sign a single off-chain payload and
+                LI.FI relays it, paying the relay fee from your USDC. Execution
+                is tracked on the task below.
+              </p>
             </div>
           </div>
         )}
 
-        {status === 'executing' && (
+        {quote?.applied && quote.taskId && (
           <div className="card">
-            <LoaderCircle className="spin" size={18} />
-            <p className="muted">Bridging USDC from Base to Arc…</p>
-          </div>
-        )}
-
-        {status === 'done' && (
-          <div className="card">
-            <CheckCircle2 size={20} />
-            <div>
-              <strong>Swap completed.</strong>
-              <p className="muted">USDC received on Arc. Check your wallet on the profile page.</p>
-            </div>
+            {status === 'ready' ? (
+              <>
+                <CheckCircle2 size={20} />
+                <div>
+                  <strong>Relay accepted.</strong>
+                  <p className="muted">
+                    LI.FI will execute on-chain; progress is tracked by task{' '}
+                    <code>{quote.taskId.substring(0, 10)}…</code>. No gas is
+                    charged to you beyond the relay fee in your USDC.
+                  </p>
+                </div>
+              </>
+            ) : status === 'executing' ? (
+              <div className="card">
+                <LoaderCircle className="spin" size={18} />
+                <p className="muted">
+                  Bridging USDC from Base to Arc… (task{' '}
+                  <code style={{ margin: 0 4px }}>
+                    {quote.taskId?.substring(0, 10)}…
+                  </code>
+                  )
+                </p>
+              </div>
+            ) : status === 'done' ? (
+              <div className="card">
+                <CheckCircle2 size={20} />
+                <div>
+                  <strong>Bridge completed.</strong>
+                  <p className="muted">
+                    USDC received on Arc. Check your wallet on the profile page.
+                  </p>
+                </div>
+              </div>
+            ) : null}
           </div>
         )}
 
         {status === 'error' && (
           <div className="card">
-            <p className="feedback error" style={{ margin: 0 }}>{error}</p>
+            <p className="feedback error" style={{ margin: 0 }}>
+              {error}
+            </p>
           </div>
         )}
       </section>
     </main>
   );
-}
-
-function quoteToAmount(q: Record<string, unknown>) {
-  const v = (key: string) => q[key];
-  const raw = v('toTokenAmount');
-  if (typeof raw !== 'string') return '—';
-  try {
-    return formatUnits(BigInt(raw), 6);
-  } catch {
-    return raw;
-  }
-}
-
-function quoteExecutionTime(q: Record<string, unknown>) {
-  const v = (key: string) => q[key];
-  const raw = v('expectedExecutionTime');
-  if (typeof raw !== 'string') return '—';
-  const n = Number(raw);
-  if (!Number.isFinite(n)) return '—';
-  const minutes = n / 60;
-  if (minutes < 1) return `${Math.round(n)}s`;
-  if (minutes < 60) return `${Math.round(minutes)}m`;
-  return `${Math.round(minutes / 60)}h`;
-}
-
-function quoteFee(q: Record<string, unknown>) {
-  const fee = q['fee'];
-  if (typeof fee !== 'string') return '—';
-  try {
-    return formatUnits(BigInt(fee), 6);
-  } catch {
-    return fee;
-  }
-}
-
-function quoteDetail(q: Record<string, unknown>) {
-  const d = q['detail'];
-  return typeof d === 'string' ? d : 'Cross-chain swap from Base to Arc.';
 }
 
 function shortAddress(address: string) {
