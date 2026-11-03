@@ -6,7 +6,7 @@ import { Bell, Home, Landmark, PiggyBank, Settings2, UserRound } from 'lucide-re
 import { WalletButton } from './DynamicProvider';
 import { readSelectedChama, selectedChamaEventName } from '../src/config/selectedChama';
 
-const nav = [['/', Home, 'Home'], ['/deposit', PiggyBank, 'Deposit'], ['/loans', Landmark, 'Loans'], ['/manage', Settings2, 'Manage'], ['/profile', UserRound, 'Profile']] as const;
+const nav = [['/', Home, 'Home'], ['/deposit', PiggyBank, 'Deposit'], ['/onramp', Wallet, 'Onramp'], ['/loans', Landmark, 'Loans'], ['/bridge', ArrowRightLeft, 'Bridge'], ['/manage', Settings2, 'Manage'], ['/profile', UserRound, 'Profile']] as const;
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [chamaName, setChamaName] = useState('Your chama');
