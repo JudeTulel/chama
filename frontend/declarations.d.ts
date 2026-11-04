@@ -48,11 +48,9 @@ declare module 'next/link';
 declare module 'next/image-types/global';
 
 // @dynamic-labs / wallet-connector modules ship no types
-declare module '@dynamic-labs/ethereum';
 declare module '@dynamic-labs/ethereum/react';
 declare module '@dynamic-labs/ethereum/viem';
 declare module '@dynamic-labs/ethereum/connectors';
-declare module '@dynamic-labs/wallet-connector-core';
 declare module '@dynamic-labs/wallet-connector-web3modal';
 declare module '@dynamic-labs/wallet-connector-lean';
 declare module '@dynamic-labs/wallet-connector-injected';
@@ -72,9 +70,6 @@ declare module '@dynamic-labs/wallet-connector-immortal';
 declare module '@dynamic-labs/wallet-connector-keepkey';
 declare module '@dynamic-labs/store';
 declare module '@dynamic-labs/waas';
-declare module '@dynamic-labs/sdk-react-core' {
-  export type Wallet = unknown;
-}
 
 // @dynamic-labs-sdk/client (the JS SDK, ships CJS/ESM, no .d.ts)
 declare module '@dynamic-labs-sdk/client' {

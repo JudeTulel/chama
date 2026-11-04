@@ -8,6 +8,33 @@ import { ExternalLink, LoaderCircle, Wallet } from 'lucide-react';
 const ONRAMP_URL = 'https://app.minisend.xyz';
 
 export default function OnrampPage() {
+  if (!process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID) {
+    return (
+      <main className="page finance-page">
+        <section className="section">
+          <div className="section-head">
+            <div>
+              <span className="eyebrow">MINISEND ONRAMP</span>
+              <h1 className="section-title">Bring USDC to Base</h1>
+            </div>
+            <Link href="/profile" className="text-button">Back to profile</Link>
+          </div>
+          <div className="card">
+            <span className="profile-icon"><Wallet size={20} /></span>
+            <div>
+              <strong>Wallet connection is not configured yet.</strong>
+              <p className="muted">Set NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID in frontend/.env.local and rebuild to connect a wallet and use the onramp.</p>
+            </div>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  return <OnrampWithWallet />;
+}
+
+function OnrampWithWallet() {
   const { primaryWallet } = useDynamicContext();
   const [iframeSrc, setIframeSrc] = useState(ONRAMP_URL);
   const [status, setStatus] = useState<'loading' | 'ready' | 'no-wallet'>('loading');

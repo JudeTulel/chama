@@ -5,6 +5,9 @@ import { EthereumWalletConnectors } from '@dynamic-labs/ethereum';
 import { addresses, arc } from '../src/config/contracts';
 
 const environmentId = process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID || '';
+// SDK hooks require an initialized store even before Dynamic is configured.
+// Wallet controls remain disabled until a real environment ID is set.
+const providerEnvironmentId = environmentId || '00000000-0000-0000-0000-000000000000';
 const arcWalletNetwork = {
   name: arc.name,
   shortName: 'ARC',
@@ -19,10 +22,7 @@ const arcWalletNetwork = {
 };
 
 export function DynamicProvider({ children }: { children: React.ReactNode }) {
-  if (!environmentId) {
-    return <>{children}</>;
-  }
-  return <DynamicContextProvider settings={{ environmentId, walletConnectors: [EthereumWalletConnectors], initialAuthenticationMode: 'connect-only', mobileExperience: 'redirect', overrides: { evmNetworks: [arcWalletNetwork] } }}>{children}</DynamicContextProvider>;
+  return <DynamicContextProvider settings={{ environmentId: providerEnvironmentId, walletConnectors: [EthereumWalletConnectors], initialAuthenticationMode: 'connect-only', mobileExperience: 'redirect', overrides: { evmNetworks: [arcWalletNetwork] } }}>{children}</DynamicContextProvider>;
 }
 
 export function WalletButton() {

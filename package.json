@@ -1,4 +1,7 @@
 {
+  "scripts": {
+    "build": "npm --prefix frontend run build"
+  },
   "devDependencies": {
     "envio": "^3.14.0"
   }

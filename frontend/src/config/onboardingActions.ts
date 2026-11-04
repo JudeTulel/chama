@@ -1,13 +1,15 @@
 import type { Address } from 'viem';
 import { isEthereumWallet } from '@dynamic-labs/ethereum';
-import type { Wallet } from '@dynamic-labs/sdk-react-core';
+import type { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import { addresses, publicClient, type ChamaDeployment } from './contracts';
 import { chamaFactoryAbi } from '../abi/ChamaFactory';
 import { chamaDirectoryAbi } from '../abi/ChamaDirectory';
 import { ensureWalletNetwork } from './networkActions';
 import { normalizeChamaName } from './chamaNameCore';
 
-export async function createChamaOnchain(wallet: Wallet, name: string): Promise<ChamaDeployment> {
+type DynamicWallet = NonNullable<ReturnType<typeof useDynamicContext>['primaryWallet']>;
+
+export async function createChamaOnchain(wallet: DynamicWallet, name: string): Promise<ChamaDeployment> {
   const normalizedName = normalizeChamaName(name);
   if (!isEthereumWallet(wallet)) throw new Error('Connect an EVM wallet to create a chama.');
   await ensureWalletNetwork(wallet, publicClient.chain.id);
