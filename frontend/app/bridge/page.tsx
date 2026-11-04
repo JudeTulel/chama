@@ -327,7 +327,7 @@ export default function BridgePage() {
                 <LoaderCircle className="spin" size={18} />
                 <p className="muted">
                   Bridging USDC from Base to Arc… (task{' '}
-                  <code style={{ margin: 0 4px }}>
+                  <code style={{ margin: '0 4px' }}>
                     {quote.taskId?.substring(0, 10)}…
                   </code>
                   )
