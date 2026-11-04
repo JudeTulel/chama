@@ -10,7 +10,7 @@ import {
   LoaderCircle,
   Wallet,
 } from 'lucide-react';
-import { formatUnits } from 'viem';
+import { formatUnits, parseUnits } from 'viem';
 import { createClient, getQuote } from '@lifi/sdk';
 
 // Source = Base (where the MiniSend onramp lands USDC).
@@ -42,7 +42,7 @@ export default function BridgePage() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  async function getQuote() {
+  async function requestQuote() {
     if (!primaryWallet?.address) {
       setError('Connect a wallet on the profile page to use the bridge.');
       return;
@@ -110,17 +110,23 @@ export default function BridgePage() {
       });
 
       // Sign the EIP-712 typed data with the connected wallet.
-      const signature = await window.ethereum.request({
+      // The ethereum provider (MetaMask / Dynamic) is a browser global without
+      // a bundled type, so cast the window to the known shape.
+      const eth = (window as any).ethereum;
+      if (!eth || typeof eth.request !== 'function') {
+        throw new Error('No wallet provider found. Connect a wallet in your browser.');
+      }
+      const signature = await eth.request({
         method: 'eth_signTypedData_v4',
         params: [
           primaryWallet.address,
-          JSON.stringify(step.typedData[0] || step.typedData),
+          JSON.stringify(step.typedData?.[0] || step.typedData),
         ],
       });
 
       const relayBody = {
         ...step,
-        typedData: [{ ...step.typedData[0], signature }],
+        typedData: [{ ...step.typedData?.[0], signature }],
       };
 
       const res = await fetch('https://li.quest/v1/advanced/relay', {
@@ -234,7 +240,7 @@ export default function BridgePage() {
               </div>
               <button
                 className="primary"
-                onClick={getQuote}
+                onClick={requestQuote}
                 disabled={submitting}
               >
                 {submitting ? (
