@@ -7,6 +7,42 @@ declare module 'lucide-react' {
   const icons: Record<string, any>;
   export default icons;
   export const __esModule: boolean;
+  export const Activity: any;
+  export const ArrowDownLeft: any;
+  export const ArrowDownToLine: any;
+  export const ArrowLeft: any;
+  export const ArrowRight: any;
+  export const ArrowRightLeft: any;
+  export const ArrowUpRight: any;
+  export const Bell: any;
+  export const Check: any;
+  export const CheckCircle2: any;
+  export const CircleAlert: any;
+  export const CircleHelp: any;
+  export const Clock3: any;
+  export const Coins: any;
+  export const Copy: any;
+  export const ExternalLink: any;
+  export const Eye: any;
+  export const Hash: any;
+  export const Home: any;
+  export const KeyRound: any;
+  export const Landmark: any;
+  export const Link2: any;
+  export const LoaderCircle: any;
+  export const Mail: any;
+  export const MessageCircle: any;
+  export const Pencil: any;
+  export const PiggyBank: any;
+  export const RefreshCw: any;
+  export const Settings2: any;
+  export const ShieldCheck: any;
+  export const Sparkles: any;
+  export const UserRound: any;
+  export const Users: any;
+  export const Wallet: any;
+  export const WalletCards: any;
+  export const X: any;
 }
 declare module 'next/link';
 declare module 'next/image-types/global';
@@ -36,6 +72,9 @@ declare module '@dynamic-labs/wallet-connector-immortal';
 declare module '@dynamic-labs/wallet-connector-keepkey';
 declare module '@dynamic-labs/store';
 declare module '@dynamic-labs/waas';
+declare module '@dynamic-labs/sdk-react-core' {
+  export type Wallet = unknown;
+}
 
 // @dynamic-labs-sdk/client (the JS SDK, ships CJS/ESM, no .d.ts)
 declare module '@dynamic-labs-sdk/client' {

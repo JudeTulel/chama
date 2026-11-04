@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Bell, Home, Landmark, PiggyBank, Settings2, UserRound } from 'lucide-react';
+import { Bell, Home, Landmark, PiggyBank, Settings2, UserRound, Wallet, ArrowRightLeft } from 'lucide-react';
 import { WalletButton } from './DynamicProvider';
 import { readSelectedChama, selectedChamaEventName } from '../src/config/selectedChama';
 

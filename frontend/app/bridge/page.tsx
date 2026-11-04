@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   ArrowRightLeft,
   CheckCircle2,
-  Clock,
+  Clock3,
   LoaderCircle,
   Wallet,
 } from 'lucide-react';
