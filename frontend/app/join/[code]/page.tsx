@@ -1,11 +1,11 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { keccak256, stringToHex, type Address } from 'viem';
+import { keccak256, stringToHex, type Address, type Chain } from 'viem';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import { isEthereumWallet } from '@dynamic-labs/ethereum';
 import { ArrowLeft, CheckCircle2, Hash, ShieldCheck, Users } from 'lucide-react';
-import { addresses, publicClient, type ChamaDeployment } from '../../../src/config/contracts';
+import { addresses, type ChamaDeployment, publicClient } from '../../../src/config/contracts';
 import { chamaDirectoryAbi } from '../../../src/abi/ChamaDirectory';
 import { saveSelectedChama } from '../../../src/config/selectedChama';
 import { ensureWalletNetwork } from '../../../src/config/networkActions';
@@ -75,9 +75,11 @@ function JoinWalletPage() {
     setError('');
     try {
       await ensureWalletNetwork(primaryWallet, publicClient.chain.id);
-      const walletClient = await primaryWallet.getWalletClient();
-      if (walletClient.chain?.id !== publicClient.chain.id) throw new Error(`Wallet is not using ${publicClient.chain.name} after the network switch.`);
-      const hash = await walletClient.writeContract({ address: addresses.directory, abi: chamaDirectoryAbi, functionName: 'requestJoin', args: [keccak256(stringToHex(code))], chain: walletClient.chain });
+      const walletClient = (await primaryWallet.getWalletClient()) as { chain?: { id?: string | number }; writeContract: (args: { address: string; abi: readonly unknown[]; functionName: string; args: readonly unknown[]; chain: Chain | undefined }) => Promise<Hash> };
+      const walletChain = (walletClient as { chain?: { id?: string | number } }).chain?.id;
+      const publicChain = (publicClient as { chain?: { id?: string | number } }).chain?.id;
+      if (walletChain !== publicChain) throw new Error(`Wallet is not using ${publicClient.chain.name} after the network switch.`);
+      const hash = await (walletClient as { writeContract: (args: { address: string; abi: readonly unknown[]; functionName: string; args: readonly unknown[]; chain: Chain | undefined }) => Promise<Hash> }).writeContract({ address: addresses.directory, abi: chamaDirectoryAbi, functionName: 'requestJoin', args: [keccak256(stringToHex(code))], chain: publicClient.chain });
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
       if (receipt.status !== 'success') throw new Error('Join request transaction reverted on-chain.');
       const requestEvents = await publicClient.getContractEvents({

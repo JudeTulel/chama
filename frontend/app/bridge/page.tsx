@@ -12,10 +12,12 @@ import {
 } from 'lucide-react';
 import { formatUnits, parseUnits } from 'viem';
 import { createClient, getQuote } from '@lifi/sdk';
+import { addresses } from '../../src/config/contracts';
 
 // Source = Base (where the MiniSend onramp lands USDC).
 // Destination = Arc (the chama chain, NEXT_PUBLIC_CHAIN_ID=5042).
-const USDC = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
+const BASE_USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+const ARC_USDC = addresses.usdc;
 const BASE: { chainId: number; networkId: string; label: string; explorer: string } = {
   chainId: 8453,
   networkId: '8453',
@@ -41,6 +43,9 @@ export default function BridgePage() {
   >('idle');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const relayFee = quote?.estimate?.feeCosts?.find(
+    (fee: { name?: string }) => fee.name === 'LIFI Gasless Relay Fee',
+  )?.amount;
 
   async function requestQuote() {
     if (!primaryWallet?.address) {
@@ -60,8 +65,8 @@ export default function BridgePage() {
       const _quote = await getQuote(client, {
         fromChain: BASE.chainId,
         toChain: ARC.chainId,
-        fromToken: USDC,
-        toToken: USDC,
+        fromToken: BASE_USDC,
+        toToken: ARC_USDC,
         fromAmount: parseUnits(amount, 6).toString(),
         fromAddress: primaryWallet.address,
         slippage: 0.005,
@@ -101,8 +106,8 @@ export default function BridgePage() {
       const step = await getQuote(client, {
         fromChain: BASE.chainId,
         toChain: ARC.chainId,
-        fromToken: USDC,
-        toToken: USDC,
+        fromToken: BASE_USDC,
+        toToken: ARC_USDC,
         fromAmount: parseUnits(amount, 6).toString(),
         fromAddress: primaryWallet.address,
         slippage: 0.005,
@@ -282,8 +287,8 @@ export default function BridgePage() {
               <div className="metric">
                 <strong>Relay fee</strong>
                 <span>
-                  {quote.relayFee
-                    ? formatUnits(BigInt(quote.relayFee), 6)
+                  {relayFee
+                    ? formatUnits(BigInt(relayFee), 6)
                     : '0'}{' '}
                   USDC
                 </span>
@@ -353,7 +358,7 @@ export default function BridgePage() {
           </div>
         )}
 
-        {status === 'error' && (
+        {error && (
           <div className="card">
             <p className="feedback error" style={{ margin: 0 }}>
               {error}

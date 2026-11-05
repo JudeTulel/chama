@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { keccak256, stringToHex, type Address } from 'viem';
+import { keccak256, stringToHex, type Address, type Chain, type Hash } from 'viem';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import { isEthereumWallet } from '@dynamic-labs/ethereum';
 import { Check, Copy, LoaderCircle, Mail, MessageCircle, Pencil, ShieldCheck, Users, X } from 'lucide-react';
@@ -61,8 +61,10 @@ export function ChamaOwnerTools({ chama, isMember, onMembershipUpdated, onNameUp
     setCopied(false);
     try {
       await ensureWalletNetwork(primaryWallet, publicClient.chain.id);
-      const client = await primaryWallet.getWalletClient();
-      if (client.chain?.id !== publicClient.chain?.id) throw new Error('Wallet is not on the configured network.');
+      const client = (await primaryWallet.getWalletClient()) as { chain?: { id?: string | number }; writeContract: (args: { address: string; abi: readonly unknown[]; functionName: string; args: readonly unknown[]; chain: Chain | undefined }) => Promise<Hash> };
+      const walletChain = (client as { chain?: { id?: string | number } }).chain?.id;
+      const configuredChain = (publicClient as { chain?: { id?: string | number } }).chain?.id;
+      if (walletChain !== configuredChain) throw new Error('Wallet is not on the configured network.');
 
       if (action === 'approve-join' || action === 'reject-join') {
         if (!applicant) throw new Error('Select a join request first.');
